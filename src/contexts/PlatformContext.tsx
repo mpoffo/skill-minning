@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 
 interface TokenData {
   scope: string;
@@ -25,16 +25,62 @@ interface PlatformContextType {
   fullName: string | null;
   tenantName: string | null;
   accessToken: string | null;
+  permission: string;
+  setPermission: (permission: string) => void;
+  isPermissionValid: boolean;
+  revalidatePermission: () => void;
 }
 
 const PlatformContext = createContext<PlatformContextType | undefined>(undefined);
+
+const VALID_PERMISSIONS = ['admin', 'manager', 'user', 'viewer'];
 
 export function PlatformProvider({ children }: { children: ReactNode }) {
   const [isLoaded, setIsLoaded] = useState(false);
   const [token, setToken] = useState<TokenData | null>(null);
   const [servicesUrl, setServicesUrl] = useState<string | null>(null);
+  const [permission, setPermissionState] = useState<string>('user');
+  const [isPermissionValid, setIsPermissionValid] = useState(true);
+
+  const revalidatePermission = useCallback(() => {
+    const isValid = VALID_PERMISSIONS.includes(permission.toLowerCase());
+    setIsPermissionValid(isValid);
+    console.log(`Permission "${permission}" validated: ${isValid}`);
+  }, [permission]);
+
+  const setPermission = useCallback((newPermission: string) => {
+    setPermissionState(newPermission);
+  }, []);
+
+  // Revalidate whenever permission changes
+  useEffect(() => {
+    revalidatePermission();
+  }, [permission, revalidatePermission]);
 
   useEffect(() => {
+    // First, try to load from sessionStorage (for emulator redirect flow)
+    const storedContext = sessionStorage.getItem('platformContext');
+    if (storedContext) {
+      try {
+        const data = JSON.parse(storedContext) as PlatformMessage;
+        if (data.token && data.servicesUrl) {
+          setToken(data.token);
+          setServicesUrl(data.servicesUrl);
+          setIsLoaded(true);
+          
+          console.log('Platform context loaded from sessionStorage:', {
+            userName: data.token.username.split('@')[0],
+            tenantName: data.token.tenantName,
+            fullName: data.token.fullName,
+          });
+          return;
+        }
+      } catch (error) {
+        console.error('Error parsing stored platform context:', error);
+      }
+    }
+
+    // Fallback to postMessage for iframe scenario
     const handleMessage = (event: MessageEvent) => {
       console.log('Received postMessage:', event.data);
       
@@ -46,7 +92,10 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
           setServicesUrl(data.servicesUrl);
           setIsLoaded(true);
           
-          console.log('Platform context loaded:', {
+          // Also store in sessionStorage
+          sessionStorage.setItem('platformContext', JSON.stringify(data));
+          
+          console.log('Platform context loaded from postMessage:', {
             userName: data.token.username.split('@')[0],
             tenantName: data.token.tenantName,
             fullName: data.token.fullName,
@@ -80,6 +129,10 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     fullName: token?.fullName || null,
     tenantName: token?.tenantName || null,
     accessToken: token?.access_token || null,
+    permission,
+    setPermission,
+    isPermissionValid,
+    revalidatePermission,
   };
 
   return (

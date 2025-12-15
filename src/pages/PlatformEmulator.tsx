@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -20,9 +21,7 @@ const defaultToken = {
 const defaultServicesUrl = "https://cloud-leaf.senior.com.br/t/senior.com.br/bridge/1.0/rest/";
 
 export default function PlatformEmulator() {
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-  const [isReady, setIsReady] = useState(false);
-  const [messageSent, setMessageSent] = useState(false);
+  const navigate = useNavigate();
   
   // Login form state
   const [loginUsername, setLoginUsername] = useState("");
@@ -100,25 +99,14 @@ export default function PlatformEmulator() {
     }
   };
 
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      if (event.data?.type === 'TALENT_MINING_READY') {
-        console.log('Talent Mining app is ready');
-        setIsReady(true);
-      }
-    };
-
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, []);
-
-  const sendContextMessage = () => {
-    if (!iframeRef.current?.contentWindow) {
-      console.error('Iframe not ready');
+  const handleNavigateToSkills = () => {
+    if (!username || !tenantName) {
+      toast.error("Preencha pelo menos o username e tenant name");
       return;
     }
 
-    const message = {
+    // Store context in sessionStorage for the skills page to read
+    const platformContext = {
       token: {
         ...defaultToken,
         username,
@@ -130,17 +118,15 @@ export default function PlatformEmulator() {
       servicesUrl,
     };
 
-    console.log('Sending platform context:', message);
-    iframeRef.current.contentWindow.postMessage(message, '*');
-    setMessageSent(true);
+    sessionStorage.setItem('platformContext', JSON.stringify(platformContext));
+    
+    toast.success("Contexto salvo! Redirecionando...");
+    navigate('/my-skills');
   };
-
-  // Get the current origin for the iframe
-  const appUrl = `${window.location.origin}/my-skills`;
 
   return (
     <div className="min-h-screen bg-grayscale-10 p-xmedium">
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-4xl mx-auto">
         <h1 className="text-h1 text-foreground mb-xmedium">
           Emulador de Plataforma Senior
         </h1>
@@ -270,67 +256,15 @@ export default function PlatformEmulator() {
               
               <div className="md:col-span-2 pt-default border-t border-border">
                 <Button 
-                  onClick={sendContextMessage}
+                  onClick={handleNavigateToSkills}
                   className="w-full"
-                  disabled={!isReady}
                 >
-                  {messageSent ? 'Reenviar Contexto' : 'Enviar Contexto (postMessage)'}
+                  Acessar Minhas Habilidades
                 </Button>
-                
-                <div className="mt-sml text-small text-muted-foreground text-center">
-                  {!isReady && 'Aguardando aplicação ficar pronta...'}
-                  {isReady && !messageSent && 'Aplicação pronta! Clique para enviar contexto.'}
-                  {isReady && messageSent && (
-                    <span className="text-feedback-success">✓ Contexto enviado com sucesso</span>
-                  )}
-                </div>
               </div>
             </div>
           </Card>
         </div>
-          
-        {/* Iframe Container */}
-        <div className="mt-xmedium">
-          <Card className="p-0 overflow-hidden">
-            <div className="bg-grayscale-80 px-default py-sml flex items-center gap-xsmall">
-              <div className="w-3 h-3 rounded-full bg-feedback-error" />
-              <div className="w-3 h-3 rounded-full bg-feedback-attention" />
-              <div className="w-3 h-3 rounded-full bg-feedback-success" />
-              <span className="ml-sml text-small text-grayscale-20 flex-1 text-center">
-                {appUrl}
-              </span>
-            </div>
-            
-            <iframe
-              ref={iframeRef}
-              src={appUrl}
-              className="w-full h-[700px] border-0"
-              title="Talent Mining Application"
-            />
-          </Card>
-        </div>
-          
-        
-        {/* Debug Info */}
-        <Card className="mt-xmedium p-default">
-          <h3 className="text-h3-bold text-foreground mb-sml">Estrutura da Mensagem postMessage</h3>
-          <pre className="bg-grayscale-90 text-grayscale-20 p-default rounded-medium text-small overflow-x-auto">
-{JSON.stringify({
-  token: {
-    scope: "browser+device_...",
-    expires_in: 21600,
-    username: username,
-    token_type: "bearer",
-    access_token: "...",
-    refresh_token: "...",
-    email: email,
-    fullName: fullName,
-    tenantName: tenantName,
-  },
-  servicesUrl: servicesUrl,
-}, null, 2)}
-          </pre>
-        </Card>
       </div>
     </div>
   );

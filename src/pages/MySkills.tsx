@@ -19,7 +19,7 @@ import { useSkills } from "@/hooks/useSkills";
 type SortOption = "name-asc" | "name-desc" | "proficiency-asc" | "proficiency-desc";
 
 export default function MySkills() {
-  const { isLoaded, fullName } = usePlatform();
+  const { isLoaded, fullName, permission, setPermission, isPermissionValid } = usePlatform();
   const { userSkills, isLoading, addSkill, updateProficiency, deleteSkill } = useSkills();
   
   const [searchTerm, setSearchTerm] = useState("");
@@ -200,7 +200,9 @@ export default function MySkills() {
       <PageFooter
         userName={fullName || "Usuário"}
         resource="res://senior.com.br/analytics/hcm/myAnalytics"
-        authorized={true}
+        authorized={isPermissionValid}
+        permission={permission}
+        onPermissionChange={setPermission}
       />
     </div>
   );
