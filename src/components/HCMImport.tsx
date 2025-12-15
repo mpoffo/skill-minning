@@ -1,0 +1,172 @@
+import { useState } from "react";
+import { Database, Loader2, CheckCircle, Info, User } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { toast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { usePlatform } from "@/contexts/PlatformContext";
+
+interface HCMImportProps {
+  onSkillsExtracted: (skills: string[]) => void;
+  existingSkillNames: string[];
+}
+
+export function HCMImport({ onSkillsExtracted, existingSkillNames }: HCMImportProps) {
+  const { userName } = usePlatform();
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [extractedSkills, setExtractedSkills] = useState<string[]>([]);
+  const [customUserName, setCustomUserName] = useState("");
+
+  const handleMining = async (targetUserName: string) => {
+    if (!targetUserName.trim()) {
+      toast({
+        title: "Usuário não informado",
+        description: "Informe um nome de usuário para buscar as habilidades.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsProcessing(true);
+    setExtractedSkills([]);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('hcm-mining', {
+        body: { userName: targetUserName.trim() },
+      });
+
+      if (error) {
+        console.error('Error in HCM Mining:', error);
+        toast({
+          title: "Erro ao processar",
+          description: "Não foi possível obter as habilidades do HCM.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const skills = data.skills || [];
+      
+      // Filter out skills the user already has
+      const newSkills = skills.filter(
+        (skill: string) => !existingSkillNames.some(
+          existing => existing.toLowerCase() === skill.toLowerCase()
+        )
+      );
+
+      if (skills.length === 0) {
+        toast({
+          title: "Nenhuma habilidade encontrada",
+          description: "O sistema não retornou habilidades para este usuário.",
+        });
+        return;
+      }
+
+      setExtractedSkills(newSkills);
+      
+      if (newSkills.length > 0) {
+        toast({
+          title: "Habilidades encontradas!",
+          description: `${newSkills.length} nova(s) habilidade(s) sugerida(s) pelo HCM.`,
+        });
+        onSkillsExtracted(newSkills);
+      } else {
+        toast({
+          title: "Todas já cadastradas",
+          description: "Você já possui todas as habilidades sugeridas.",
+        });
+      }
+    } catch (err) {
+      console.error('Error:', err);
+      toast({
+        title: "Erro",
+        description: "Ocorreu um erro ao processar a requisição.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  return (
+    <div className="border border-border rounded-big p-default bg-card">
+      <div className="flex items-center gap-sml mb-sml">
+        <Database className="w-5 h-5 text-primary" />
+        <span className="text-label font-medium text-foreground">HCM-Mining</span>
+      </div>
+      
+      <div className="text-small text-muted-foreground mb-default space-y-xsmall">
+        <div className="flex items-start gap-xsmall">
+          <Info className="w-4 h-4 flex-shrink-0 mt-xxsmall" />
+          <span>Geração de hard skills via IA com base no cargo e perfil do usuário no HCM.</span>
+        </div>
+      </div>
+
+      {userName && (
+        <Button
+          variant="default"
+          className="w-full mb-sml"
+          onClick={() => handleMining(userName)}
+          disabled={isProcessing}
+        >
+          {isProcessing ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-xsmall animate-spin" />
+              Processando IA...
+            </>
+          ) : (
+            <>
+              <User className="w-4 h-4 mr-xsmall" />
+              Buscar para {userName}
+            </>
+          )}
+        </Button>
+      )}
+
+      <div className="flex gap-xsmall">
+        <Input
+          placeholder="Ou informe outro usuário..."
+          value={customUserName}
+          onChange={(e) => setCustomUserName(e.target.value)}
+          disabled={isProcessing}
+          className="flex-1"
+        />
+        <Button
+          variant="outline"
+          onClick={() => handleMining(customUserName)}
+          disabled={isProcessing || !customUserName.trim()}
+        >
+          {isProcessing ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            "Buscar"
+          )}
+        </Button>
+      </div>
+
+      {extractedSkills.length > 0 && (
+        <div className="mt-default">
+          <div className="flex items-center gap-xsmall text-feedback-success text-small mb-xsmall">
+            <CheckCircle className="w-4 h-4" />
+            <span>{extractedSkills.length} habilidades novas sugeridas</span>
+          </div>
+          <div className="flex flex-wrap gap-xsmall">
+            {extractedSkills.slice(0, 10).map((skill, i) => (
+              <span
+                key={i}
+                className="text-small px-xsmall py-xxsmall bg-primary/10 text-primary rounded-small"
+              >
+                {skill}
+              </span>
+            ))}
+            {extractedSkills.length > 10 && (
+              <span className="text-small text-muted-foreground">
+                +{extractedSkills.length - 10} mais
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

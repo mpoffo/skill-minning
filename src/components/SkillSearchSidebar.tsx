@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { StarRating } from "@/components/ui/star-rating";
 import { LinkedInImport } from "@/components/LinkedInImport";
+import { HCMImport } from "@/components/HCMImport";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { usePlatform } from "@/contexts/PlatformContext";
@@ -187,9 +188,23 @@ export function SkillSearchSidebar({
             <LinkedInImport
               existingSkillNames={existingSkills.map(s => s.skillName)}
               onSkillsExtracted={(skills) => {
-                // Add extracted skills as suggestions
                 const newSuggestions = skills.map((name, index) => ({
                   id: `linkedin-${index}-${name}`,
+                  name,
+                  isNew: true,
+                }));
+                setSuggestions(prev => [...newSuggestions, ...prev]);
+              }}
+            />
+          </div>
+
+          {/* HCM-Mining Import */}
+          <div className="p-xmedium border-b border-border">
+            <HCMImport
+              existingSkillNames={existingSkills.map(s => s.skillName)}
+              onSkillsExtracted={(skills) => {
+                const newSuggestions = skills.map((name, index) => ({
+                  id: `hcm-${index}-${name}`,
                   name,
                   isNew: true,
                 }));
