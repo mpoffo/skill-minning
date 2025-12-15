@@ -326,22 +326,49 @@ export function SkillSearchSidebar({
 
 interface SkillSuggestionCardProps {
   skill: SuggestedSkill;
-  onAdd: (skill: SuggestedSkill, proficiency: number) => void;
+  onAdd: (skill: SuggestedSkill, proficiency: number) => Promise<void>;
 }
 
 function SkillSuggestionCard({ skill, onAdd }: SkillSuggestionCardProps) {
   const [hoverProficiency, setHoverProficiency] = useState<number | null>(null);
+  const [isAdding, setIsAdding] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+
+  const handleAdd = async (proficiency: number) => {
+    setIsAdding(true);
+    try {
+      await onAdd(skill, proficiency);
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 1000);
+    } finally {
+      setIsAdding(false);
+    }
+  };
 
   return (
     <div
       className={cn(
-        "flex flex-col p-default rounded-big border border-border",
+        "relative flex flex-col p-default rounded-big border border-border",
         "transition-all duration-150",
         skill.alreadyOwned
           ? "bg-grayscale-5"
           : "hover:bg-grayscale-5 hover:border-primary/30"
       )}
     >
+      {/* Loading overlay */}
+      {isAdding && (
+        <div className="absolute inset-0 bg-card/80 rounded-big flex items-center justify-center z-10">
+          <Loader2 className="w-6 h-6 animate-spin text-primary" />
+        </div>
+      )}
+
+      {/* Success overlay */}
+      {showSuccess && (
+        <div className="absolute inset-0 bg-feedback-success/10 rounded-big flex items-center justify-center z-10 animate-fade-out">
+          <span className="text-label text-feedback-success font-medium">Inserido com sucesso!</span>
+        </div>
+      )}
+
       <div className="flex items-start gap-xsmall mb-sml">
         <span className="text-label text-foreground flex-1">{skill.name}</span>
         {skill.origin && (
@@ -384,11 +411,6 @@ function SkillSuggestionCard({ skill, onAdd }: SkillSuggestionCardProps) {
             Novo
           </span>
         )}
-        {skill.alreadyOwned && (
-          <span className="text-small text-feedback-success flex-shrink-0">
-            Já possuo
-          </span>
-        )}
         {skill.similarTo && (
           <span className="text-small text-feedback-warning flex-shrink-0">
             Similar a: {skill.similarTo}
@@ -403,10 +425,11 @@ function SkillSuggestionCard({ skill, onAdd }: SkillSuggestionCardProps) {
           {[1, 2, 3, 4, 5].map((star) => (
             <button
               key={star}
-              onClick={() => onAdd(skill, star)}
+              onClick={() => handleAdd(star)}
               onMouseEnter={() => setHoverProficiency(star)}
               onMouseLeave={() => setHoverProficiency(null)}
-              className="p-xsmall rounded-medium hover:bg-primary/10 transition-colors"
+              disabled={isAdding}
+              className="p-xsmall rounded-medium hover:bg-primary/10 transition-colors disabled:opacity-50"
             >
               <FontAwesomeIcon
                 icon={hoverProficiency && star <= hoverProficiency ? faStarSolid : faStarRegular}
