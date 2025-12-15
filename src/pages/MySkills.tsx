@@ -172,7 +172,6 @@ export default function MySkills() {
                   id={skill.id}
                   name={skill.skillName}
                   proficiency={skill.proficiency}
-                  validated={skill.validated}
                   onProficiencyChange={handleProficiencyChange}
                   onDelete={handleDeleteSkill}
                 />
