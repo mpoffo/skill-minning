@@ -7,7 +7,6 @@ interface SkillGridCardProps {
   id: string;
   name: string;
   proficiency: number;
-  validated?: boolean;
   onProficiencyChange: (id: string, proficiency: number) => void;
   onDelete: (id: string) => void;
 }
@@ -16,14 +15,13 @@ export function SkillGridCard({
   id,
   name,
   proficiency,
-  validated = true,
   onProficiencyChange,
   onDelete,
 }: SkillGridCardProps) {
   return (
     <div
       className={cn(
-        "group relative flex flex-col p-default bg-card rounded-big",
+        "group relative flex flex-col p-default bg-card rounded-big min-h-[100px]",
         "border border-border hover:shadow-dp04 transition-all duration-200",
         "animate-fade-in"
       )}
@@ -39,15 +37,10 @@ export function SkillGridCard({
       </Button>
 
       {/* Skill name */}
-      <div className="flex items-start gap-xsmall mb-sml pr-big">
-        <span className="text-label font-medium text-foreground line-clamp-2">
+      <div className="flex-1 pr-big mb-sml">
+        <span className="text-label font-medium text-foreground">
           {name}
         </span>
-        {!validated && (
-          <span className="text-small px-xsmall py-xxsmall bg-feedback-attention/20 text-feedback-attention rounded-small flex-shrink-0">
-            Pendente
-          </span>
-        )}
       </div>
       
       {/* Star rating */}
