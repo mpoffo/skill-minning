@@ -1,1 +1,4 @@
 project_id = "jqelupfwkjgxjulediwf"
+
+[functions.platform-gateway]
+verify_jwt = false

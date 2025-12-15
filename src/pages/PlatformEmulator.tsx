@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 const defaultToken = {
   scope: "browser+device_web",
@@ -45,39 +46,43 @@ export default function PlatformEmulator() {
     setIsLoggingIn(true);
     
     try {
-      // Call login API
-      const loginResponse = await fetch(`${servicesUrl}platform/authentication/actions/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      // Call login via edge function gateway
+      const { data: loginData, error: loginError } = await supabase.functions.invoke('platform-gateway', {
+        body: {
+          action: 'login',
+          servicesUrl,
           username: loginUsername,
           password: loginPassword,
-        }),
+        },
       });
 
-      if (!loginResponse.ok) {
-        throw new Error('Falha na autenticação');
+      if (loginError) {
+        throw new Error(loginError.message || 'Falha na autenticação');
       }
 
-      const loginData = await loginResponse.json();
+      if (loginData.error) {
+        throw new Error(loginData.error);
+      }
+
       const tokenData = JSON.parse(loginData.jsonToken);
       const token = tokenData.access_token;
 
-      // Call getUser API with the token
-      const userResponse = await fetch(`${servicesUrl}platform/user/queries/getUser`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
+      // Call getUser via edge function gateway
+      const { data: userData, error: userError } = await supabase.functions.invoke('platform-gateway', {
+        body: {
+          action: 'getUser',
+          servicesUrl,
+          accessToken: token,
         },
       });
 
-      if (!userResponse.ok) {
-        throw new Error('Falha ao obter dados do usuário');
+      if (userError) {
+        throw new Error(userError.message || 'Falha ao obter dados do usuário');
       }
 
-      const userData = await userResponse.json();
+      if (userData.error) {
+        throw new Error(userData.error);
+      }
 
       // Fill in the form fields
       setAccessToken(token);
