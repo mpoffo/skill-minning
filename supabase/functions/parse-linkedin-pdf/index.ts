@@ -58,29 +58,34 @@ serve(async (req) => {
             content: [
               {
                 type: 'text',
-                text: `Você está analisando um arquivo PDF de perfil do LinkedIn. 
-                
-Extraia TODAS as habilidades mencionadas no perfil. Procure em seções como:
-- "Competências" ou "Skills"
-- "Principais competências" ou "Top skills"
-- Habilidades mencionadas nas experiências de trabalho
-- Habilidades mencionadas na formação
-- Certificações e cursos
-- Qualquer outra menção a tecnologias, ferramentas, metodologias ou soft skills
+                text: `Você está analisando um PDF de perfil do LinkedIn para extrair HABILIDADES TÉCNICAS E COMPORTAMENTAIS que a pessoa POSSUI.
 
-REGRAS IMPORTANTES:
-1. NÃO invente habilidades que não estão no documento
-2. Extraia apenas o que está explicitamente escrito
-3. Normalize os nomes (ex: "Python programming" → "Python")
-4. Remova duplicatas
-5. Inclua tanto hard skills quanto soft skills
+ONDE PROCURAR:
+- Seção "Competências" / "Skills" / "Principais competências"
+- Tecnologias e ferramentas mencionadas que a pessoa UTILIZOU
+- Metodologias que a pessoa APLICOU
+- Certificações obtidas
+- Idiomas
 
-Responda APENAS com um JSON válido no formato:
-{
-  "skills": ["Skill 1", "Skill 2", "Skill 3", ...]
-}
+REGRAS CRÍTICAS DE EXTRAÇÃO:
+1. Extraia APENAS habilidades que a pessoa POSSUI ou DOMINA
+2. NÃO extraia:
+   - Públicos-alvo ou destinatários (ex: "C-level", "clientes", "stakeholders")
+   - Nomes de empresas, produtos ou projetos
+   - Resultados ou entregas (ex: "aumento de vendas", "redução de custos")
+   - Cargos ou títulos (ex: "gerente", "coordenador")
+   - Ações genéricas (ex: "desenvolvimento", "planejamento", "execução")
+3. Diferencie entre:
+   - "Apresentou para C-level" → NÃO é habilidade
+   - "Liderança de equipe" → É habilidade
+   - "Entregou sistema para clientes" → NÃO é habilidade  
+   - "Python" → É habilidade
+4. Normalize nomes (ex: "Python programming" → "Python")
+5. Remova duplicatas
+6. NÃO invente habilidades não mencionadas
 
-Se não encontrar habilidades, retorne: {"skills": []}`,
+Responda APENAS com JSON:
+{"skills": ["Skill 1", "Skill 2", ...]}`,
               },
               {
                 type: 'file',
