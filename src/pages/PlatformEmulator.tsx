@@ -27,6 +27,7 @@ export default function PlatformEmulator() {
   const [fullName, setFullName] = useState(defaultToken.fullName);
   const [email, setEmail] = useState(defaultToken.email);
   const [tenantName, setTenantName] = useState(defaultToken.tenantName);
+  const [accessToken, setAccessToken] = useState(defaultToken.access_token);
   const [servicesUrl, setServicesUrl] = useState(defaultServicesUrl);
 
   useEffect(() => {
@@ -54,6 +55,7 @@ export default function PlatformEmulator() {
         fullName,
         email,
         tenantName,
+        access_token: accessToken,
       },
       servicesUrl,
     };
@@ -128,6 +130,20 @@ export default function PlatformEmulator() {
                 />
                 <span className="text-small text-muted-foreground">
                   Schema do banco: {tenantName}_talent_mining
+                </span>
+              </div>
+              
+              <div>
+                <label className="text-label-bold text-foreground block mb-xsmall">
+                  Access Token
+                </label>
+                <Input 
+                  value={accessToken}
+                  onChange={(e) => setAccessToken(e.target.value)}
+                  placeholder="eyJhbGciOiJSUzI1NiIs..."
+                />
+                <span className="text-small text-muted-foreground">
+                  Token JWT para autenticação
                 </span>
               </div>
               
