@@ -1,0 +1,210 @@
+import { useState, useRef, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
+
+const defaultToken = {
+  scope: "browser+device_web",
+  expires_in: 21600,
+  username: "1.1.1288@hcmdof-dataoffice.com.br",
+  token_type: "bearer",
+  access_token: "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.demo_token",
+  refresh_token: "demo_refresh_token",
+  email: "maicon.schroeder@senior.com.br",
+  fullName: "MAICON SCHROEDER",
+  tenantName: "hcmdof-dataofficecombr",
+};
+
+const defaultServicesUrl = "https://cloud-leaf.senior.com.br/t/senior.com.br/bridge/1.0/rest/";
+
+export default function PlatformEmulator() {
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [isReady, setIsReady] = useState(false);
+  const [messageSent, setMessageSent] = useState(false);
+  
+  // Form state
+  const [username, setUsername] = useState(defaultToken.username);
+  const [fullName, setFullName] = useState(defaultToken.fullName);
+  const [email, setEmail] = useState(defaultToken.email);
+  const [tenantName, setTenantName] = useState(defaultToken.tenantName);
+  const [servicesUrl, setServicesUrl] = useState(defaultServicesUrl);
+
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'TALENT_MINING_READY') {
+        console.log('Talent Mining app is ready');
+        setIsReady(true);
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
+
+  const sendContextMessage = () => {
+    if (!iframeRef.current?.contentWindow) {
+      console.error('Iframe not ready');
+      return;
+    }
+
+    const message = {
+      token: {
+        ...defaultToken,
+        username,
+        fullName,
+        email,
+        tenantName,
+      },
+      servicesUrl,
+    };
+
+    console.log('Sending platform context:', message);
+    iframeRef.current.contentWindow.postMessage(message, '*');
+    setMessageSent(true);
+  };
+
+  // Get the current origin for the iframe
+  const appUrl = `${window.location.origin}/my-skills`;
+
+  return (
+    <div className="min-h-screen bg-grayscale-10 p-xmedium">
+      <div className="max-w-7xl mx-auto">
+        <h1 className="text-h1 text-foreground mb-xmedium">
+          Emulador de Plataforma Senior
+        </h1>
+        
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-xmedium">
+          {/* Configuration Panel */}
+          <Card className="p-xmedium">
+            <h2 className="text-h3-caps text-foreground mb-default">
+              Configuração do Contexto
+            </h2>
+            
+            <div className="space-y-default">
+              <div>
+                <label className="text-label-bold text-foreground block mb-xsmall">
+                  Username
+                </label>
+                <Input 
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="usuario@tenant.com"
+                />
+                <span className="text-small text-muted-foreground">
+                  Formato: username@dominio
+                </span>
+              </div>
+              
+              <div>
+                <label className="text-label-bold text-foreground block mb-xsmall">
+                  Nome Completo
+                </label>
+                <Input 
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="Nome Sobrenome"
+                />
+              </div>
+              
+              <div>
+                <label className="text-label-bold text-foreground block mb-xsmall">
+                  E-mail
+                </label>
+                <Input 
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="email@empresa.com"
+                />
+              </div>
+              
+              <div>
+                <label className="text-label-bold text-foreground block mb-xsmall">
+                  Tenant Name
+                </label>
+                <Input 
+                  value={tenantName}
+                  onChange={(e) => setTenantName(e.target.value)}
+                  placeholder="nome-do-tenant"
+                />
+                <span className="text-small text-muted-foreground">
+                  Schema do banco: {tenantName}_talent_mining
+                </span>
+              </div>
+              
+              <div>
+                <label className="text-label-bold text-foreground block mb-xsmall">
+                  Services URL
+                </label>
+                <Input 
+                  value={servicesUrl}
+                  onChange={(e) => setServicesUrl(e.target.value)}
+                  placeholder="https://..."
+                />
+              </div>
+              
+              <div className="pt-default border-t border-border">
+                <Button 
+                  onClick={sendContextMessage}
+                  className="w-full"
+                  disabled={!isReady}
+                >
+                  {messageSent ? 'Reenviar Contexto' : 'Enviar Contexto (postMessage)'}
+                </Button>
+                
+                <div className="mt-sml text-small text-muted-foreground text-center">
+                  {!isReady && 'Aguardando aplicação ficar pronta...'}
+                  {isReady && !messageSent && 'Aplicação pronta! Clique para enviar contexto.'}
+                  {isReady && messageSent && (
+                    <span className="text-feedback-success">✓ Contexto enviado com sucesso</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </Card>
+          
+          {/* Iframe Container */}
+          <div className="lg:col-span-2">
+            <Card className="p-0 overflow-hidden">
+              <div className="bg-grayscale-80 px-default py-sml flex items-center gap-xsmall">
+                <div className="w-3 h-3 rounded-full bg-feedback-error" />
+                <div className="w-3 h-3 rounded-full bg-feedback-attention" />
+                <div className="w-3 h-3 rounded-full bg-feedback-success" />
+                <span className="ml-sml text-small text-grayscale-20 flex-1 text-center">
+                  {appUrl}
+                </span>
+              </div>
+              
+              <iframe
+                ref={iframeRef}
+                src={appUrl}
+                className="w-full h-[700px] border-0"
+                title="Talent Mining Application"
+              />
+            </Card>
+          </div>
+        </div>
+        
+        {/* Debug Info */}
+        <Card className="mt-xmedium p-default">
+          <h3 className="text-h3-bold text-foreground mb-sml">Estrutura da Mensagem postMessage</h3>
+          <pre className="bg-grayscale-90 text-grayscale-20 p-default rounded-medium text-small overflow-x-auto">
+{JSON.stringify({
+  token: {
+    scope: "browser+device_...",
+    expires_in: 21600,
+    username: username,
+    token_type: "bearer",
+    access_token: "...",
+    refresh_token: "...",
+    email: email,
+    fullName: fullName,
+    tenantName: tenantName,
+  },
+  servicesUrl: servicesUrl,
+}, null, 2)}
+          </pre>
+        </Card>
+      </div>
+    </div>
+  );
+}

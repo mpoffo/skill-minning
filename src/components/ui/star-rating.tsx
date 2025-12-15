@@ -1,4 +1,6 @@
-import { Star } from "lucide-react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faStar as faStarSolid } from "@fortawesome/free-solid-svg-icons";
+import { faStar as faStarRegular } from "@fortawesome/free-regular-svg-icons";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 
@@ -28,9 +30,9 @@ export function StarRating({
   const [hoverValue, setHoverValue] = useState<number | null>(null);
 
   const sizeClasses = {
-    sm: "w-4 h-4",
-    md: "w-5 h-5",
-    lg: "w-6 h-6",
+    sm: "text-sm",
+    md: "text-lg",
+    lg: "text-xl",
   };
 
   const displayValue = hoverValue ?? value;
@@ -52,13 +54,14 @@ export function StarRating({
               readonly && "cursor-default"
             )}
           >
-            <Star
+            <FontAwesomeIcon
+              icon={star <= displayValue ? faStarSolid : faStarRegular}
               className={cn(
                 sizeClasses[size],
                 "transition-colors duration-150",
                 star <= displayValue
-                  ? "fill-primary text-primary"
-                  : "fill-transparent text-grayscale-40"
+                  ? "text-primary"
+                  : "text-grayscale-40"
               )}
             />
           </button>
