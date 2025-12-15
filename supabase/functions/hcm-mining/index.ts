@@ -15,9 +15,10 @@ const PROMPT_TEMPLATE = `Regras estritas:
 (2) hard skills devem ser técnicas (ferramentas, linguagens, frameworks, plataformas, métodos, padrões, conceitos e práticas) e não soft skills; 
 (3) adeque profundidade ao seniority (junior/pleno/sênior); 
 (4) quando a entrada for user_name, personalize com base nas colunas desse usuário, mas sempre coerente com o cargo; quando a entrada for cargo + senioridade, use registros correspondentes no dataset (ou agregue sinais do cargo) sem criar detalhes pessoais. Se alguma coluna estiver ausente, complete com inferências genéricas e plausíveis do cargo, sem "inventar histórico" do colaborador, caso o user_name passado nao exista retorne json vazio.
+(5) Para cada skill, indique a origem (coluna que inspirou): responsibilities, certifications, education, experience, position, ou inferred (quando inferido do contexto geral).
 
 Formato de saída obrigatório (JSON estrito, sem markdown):
-{{"hard_skills":["skill 1","skill 2","...","skill 20+"]}}
+{{"hard_skills":[{{"skill":"Python","origin":"responsibilities"}},{{"skill":"SQL","origin":"certifications"}}]}}
 
 As skills devem ser curtas, padronizadas e sem duplicatas óbvias.
 
@@ -147,7 +148,12 @@ async function buscarMensagensThread(threadId: string): Promise<string> {
   throw new Error("Nenhuma resposta do assistente encontrada nas mensagens");
 }
 
-function extrairJsonDaResposta(texto: string): { hard_skills: string[] } {
+interface HardSkillItem {
+  skill: string;
+  origin: string;
+}
+
+function extrairJsonDaResposta(texto: string): { hard_skills: HardSkillItem[] } {
   let textoLimpo = texto.trim();
   
   // Remove blocos de markdown
@@ -156,7 +162,22 @@ function extrairJsonDaResposta(texto: string): { hard_skills: string[] } {
   }
   
   try {
-    return JSON.parse(textoLimpo);
+    const parsed = JSON.parse(textoLimpo);
+    
+    // Handle both old format (string[]) and new format ({skill, origin}[])
+    if (Array.isArray(parsed.hard_skills)) {
+      if (parsed.hard_skills.length > 0 && typeof parsed.hard_skills[0] === 'string') {
+        // Old format - convert to new format with 'inferred' origin
+        return {
+          hard_skills: parsed.hard_skills.map((skill: string) => ({
+            skill,
+            origin: 'inferred'
+          }))
+        };
+      }
+    }
+    
+    return parsed;
   } catch (e) {
     console.error("⚠️ Erro ao parsear JSON:", e);
     console.error("Texto recebido:", textoLimpo);

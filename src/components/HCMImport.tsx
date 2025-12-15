@@ -5,16 +5,40 @@ import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { usePlatform } from "@/contexts/PlatformContext";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
+interface HardSkillItem {
+  skill: string;
+  origin: string;
+}
 
 interface HCMImportProps {
   onSkillsExtracted: (skills: string[]) => void;
   existingSkillNames: string[];
 }
 
+const originLabels: Record<string, string> = {
+  responsibilities: "Responsabilidades",
+  certifications: "Certificações",
+  education: "Formação",
+  experience: "Experiência",
+  position: "Cargo",
+  inferred: "Inferido",
+};
+
+const originColors: Record<string, string> = {
+  responsibilities: "bg-blue-500/10 text-blue-600",
+  certifications: "bg-green-500/10 text-green-600",
+  education: "bg-purple-500/10 text-purple-600",
+  experience: "bg-orange-500/10 text-orange-600",
+  position: "bg-cyan-500/10 text-cyan-600",
+  inferred: "bg-gray-500/10 text-gray-600",
+};
+
 export function HCMImport({ onSkillsExtracted, existingSkillNames }: HCMImportProps) {
   const { userName } = usePlatform();
   const [isProcessing, setIsProcessing] = useState(false);
-  const [extractedSkills, setExtractedSkills] = useState<string[]>([]);
+  const [extractedSkills, setExtractedSkills] = useState<HardSkillItem[]>([]);
   const [customUserName, setCustomUserName] = useState("");
 
   const handleMining = async (targetUserName: string) => {
@@ -45,12 +69,12 @@ export function HCMImport({ onSkillsExtracted, existingSkillNames }: HCMImportPr
         return;
       }
 
-      const skills = data.skills || [];
+      const skills: HardSkillItem[] = data.skills || [];
       
       // Filter out skills the user already has
       const newSkills = skills.filter(
-        (skill: string) => !existingSkillNames.some(
-          existing => existing.toLowerCase() === skill.toLowerCase()
+        (item: HardSkillItem) => !existingSkillNames.some(
+          existing => existing.toLowerCase() === item.skill.toLowerCase()
         )
       );
 
@@ -69,7 +93,7 @@ export function HCMImport({ onSkillsExtracted, existingSkillNames }: HCMImportPr
           title: "Habilidades encontradas!",
           description: `${newSkills.length} nova(s) habilidade(s) sugerida(s) pelo HCM.`,
         });
-        onSkillsExtracted(newSkills);
+        onSkillsExtracted(newSkills.map(item => item.skill));
       } else {
         toast({
           title: "Todas já cadastradas",
@@ -150,21 +174,29 @@ export function HCMImport({ onSkillsExtracted, existingSkillNames }: HCMImportPr
             <CheckCircle className="w-4 h-4" />
             <span>{extractedSkills.length} habilidades novas sugeridas</span>
           </div>
-          <div className="flex flex-wrap gap-xsmall">
-            {extractedSkills.slice(0, 10).map((skill, i) => (
-              <span
-                key={i}
-                className="text-small px-xsmall py-xxsmall bg-primary/10 text-primary rounded-small"
-              >
-                {skill}
-              </span>
-            ))}
-            {extractedSkills.length > 10 && (
-              <span className="text-small text-muted-foreground">
-                +{extractedSkills.length - 10} mais
-              </span>
-            )}
-          </div>
+          <TooltipProvider>
+            <div className="flex flex-wrap gap-xsmall">
+              {extractedSkills.slice(0, 10).map((item, i) => (
+                <Tooltip key={i}>
+                  <TooltipTrigger asChild>
+                    <span
+                      className={`text-small px-xsmall py-xxsmall rounded-small cursor-help ${originColors[item.origin] || originColors.inferred}`}
+                    >
+                      {item.skill}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Origem: {originLabels[item.origin] || item.origin}</p>
+                  </TooltipContent>
+                </Tooltip>
+              ))}
+              {extractedSkills.length > 10 && (
+                <span className="text-small text-muted-foreground">
+                  +{extractedSkills.length - 10} mais
+                </span>
+              )}
+            </div>
+          </TooltipProvider>
         </div>
       )}
     </div>
