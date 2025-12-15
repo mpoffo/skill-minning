@@ -204,11 +204,13 @@ export function SkillSearchSidebar({
             <HCMImport
               existingSkillNames={existingSkills.map(s => s.skillName)}
               onSkillsExtracted={(skills) => {
+                console.log('Skills received in sidebar:', skills);
                 const newSuggestions = skills.map((skill, index) => ({
                   id: `hcm-${index}-${skill.name}`,
                   name: skill.name,
                   origin: skill.origin,
                 }));
+                console.log('New suggestions with origin:', newSuggestions);
                 setSuggestions(prev => [...newSuggestions, ...prev]);
               }}
             />

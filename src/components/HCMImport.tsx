@@ -67,7 +67,9 @@ export function HCMImport({ onSkillsExtracted, existingSkillNames }: HCMImportPr
         return;
       }
 
+      console.log('HCM Mining raw response:', data);
       const skills: HardSkillItem[] = data.skills || [];
+      console.log('HCM Mining skills with origins:', skills);
       
       // Filter out skills the user already has
       const newSkills = skills.filter(
