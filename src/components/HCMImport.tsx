@@ -1,7 +1,6 @@
 import { useState } from "react";
-import { Database, Loader2, CheckCircle, Info, User } from "lucide-react";
+import { Database, Loader2, CheckCircle, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { usePlatform } from "@/contexts/PlatformContext";
@@ -39,13 +38,12 @@ export function HCMImport({ onSkillsExtracted, existingSkillNames }: HCMImportPr
   const { userName } = usePlatform();
   const [isProcessing, setIsProcessing] = useState(false);
   const [extractedSkills, setExtractedSkills] = useState<HardSkillItem[]>([]);
-  const [customUserName, setCustomUserName] = useState("");
 
-  const handleMining = async (targetUserName: string) => {
-    if (!targetUserName.trim()) {
+  const handleMining = async () => {
+    if (!userName) {
       toast({
-        title: "Usuário não informado",
-        description: "Informe um nome de usuário para buscar as habilidades.",
+        title: "Usuário não identificado",
+        description: "Não foi possível identificar o usuário logado.",
         variant: "destructive",
       });
       return;
@@ -56,7 +54,7 @@ export function HCMImport({ onSkillsExtracted, existingSkillNames }: HCMImportPr
 
     try {
       const { data, error } = await supabase.functions.invoke('hcm-mining', {
-        body: { userName: targetUserName.trim() },
+        body: { userName },
       });
 
       if (error) {
@@ -126,47 +124,24 @@ export function HCMImport({ onSkillsExtracted, existingSkillNames }: HCMImportPr
         </div>
       </div>
 
-      {userName && (
-        <Button
-          variant="default"
-          className="w-full mb-sml"
-          onClick={() => handleMining(userName)}
-          disabled={isProcessing}
-        >
-          {isProcessing ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-xsmall animate-spin" />
-              Processando IA...
-            </>
-          ) : (
-            <>
-              <User className="w-4 h-4 mr-xsmall" />
-              Buscar para {userName}
-            </>
-          )}
-        </Button>
-      )}
-
-      <div className="flex gap-xsmall">
-        <Input
-          placeholder="Ou informe outro usuário..."
-          value={customUserName}
-          onChange={(e) => setCustomUserName(e.target.value)}
-          disabled={isProcessing}
-          className="flex-1"
-        />
-        <Button
-          variant="outline"
-          onClick={() => handleMining(customUserName)}
-          disabled={isProcessing || !customUserName.trim()}
-        >
-          {isProcessing ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            "Buscar"
-          )}
-        </Button>
-      </div>
+      <Button
+        variant="default"
+        className="w-full"
+        onClick={handleMining}
+        disabled={isProcessing || !userName}
+      >
+        {isProcessing ? (
+          <>
+            <Loader2 className="w-4 h-4 mr-xsmall animate-spin" />
+            Processando IA...
+          </>
+        ) : (
+          <>
+            <Database className="w-4 h-4 mr-xsmall" />
+            Buscar Habilidades
+          </>
+        )}
+      </Button>
 
       {extractedSkills.length > 0 && (
         <div className="mt-default">
