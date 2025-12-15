@@ -7,7 +7,7 @@ const corsHeaders = {
 
 // Configurações da API Senior iAssist
 const AGENT_ID = "298f7b41-265d-4dc2-b6d4-6c3caf4a95f1";
-const API_TOKEN = "0rgBghXSfZ0QSMOyuiDnQgxP0hSIxsTM";
+const API_TOKEN = "j6xmBh5V6fUL1x2xhQKTRLwvlMQ7rasX";
 const BASE_URL = "https://platform-homologx.senior.com.br/t/senior-x/platform/iassist/api";
 
 const PROMPT_TEMPLATE = `Regras estritas: 
