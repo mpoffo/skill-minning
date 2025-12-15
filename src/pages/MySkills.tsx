@@ -136,12 +136,12 @@ export default function MySkills() {
               </div>
             </div>
 
-            {/* Loading indicator */}
-            {isLoading && (
-              <div className="text-center py-default">
+            {/* Loading indicator (reserva espaço para evitar deslocamento) */}
+            <div className="h-[44px] flex items-center justify-center">
+              {isLoading && (
                 <div className="inline-block w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-              </div>
-            )}
+              )}
+            </div>
 
             {/* Skills Grid */}
             {filteredSkills.length === 0 && !isLoading && (
