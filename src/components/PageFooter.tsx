@@ -23,15 +23,11 @@ export function PageFooter({
         
         <div className="flex items-center gap-default">
           {permission !== undefined && onPermissionChange && (
-            <div className="flex items-center gap-xsmall">
-              <span>Permissão:</span>
-              <Input
-                value={permission}
-                onChange={(e) => onPermissionChange(e.target.value)}
-                className="w-24 h-7 text-small py-0"
-                placeholder="user"
-              />
-            </div>
+            <Input
+              value={permission}
+              onChange={(e) => onPermissionChange(e.target.value)}
+              className="w-28 h-7 text-small py-0"
+            />
           )}
           
           <div className="flex items-center gap-xsmall">
