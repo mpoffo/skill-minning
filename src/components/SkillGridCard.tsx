@@ -2,6 +2,12 @@ import { Trash2 } from "lucide-react";
 import { StarRating } from "@/components/ui/star-rating";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface SkillGridCardProps {
   id: string;
@@ -36,11 +42,20 @@ export function SkillGridCard({
         <Trash2 className="w-4 h-4" />
       </Button>
 
-      {/* Skill name */}
+      {/* Skill name with tooltip */}
       <div className="flex-1 pr-big mb-sml">
-        <span className="text-label font-medium text-foreground">
-          {name}
-        </span>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="text-label font-medium text-foreground block truncate cursor-default">
+                {name}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{name}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
       
       {/* Star rating */}
