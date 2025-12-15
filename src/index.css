@@ -247,4 +247,21 @@
   .shadow-dp24 {
     box-shadow: var(--shadow-dp24);
   }
+  
+  /* Fade-out animation for success messages */
+  @keyframes fade-out {
+    0% {
+      opacity: 1;
+    }
+    70% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
+  
+  .animate-fade-out {
+    animation: fade-out 1s ease-out forwards;
+  }
 }
