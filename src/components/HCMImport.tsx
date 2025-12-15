@@ -12,7 +12,7 @@ interface HardSkillItem {
 }
 
 interface HCMImportProps {
-  onSkillsExtracted: (skills: string[]) => void;
+  onSkillsExtracted: (skills: { name: string; origin: string }[]) => void;
   existingSkillNames: string[];
 }
 
@@ -91,7 +91,7 @@ export function HCMImport({ onSkillsExtracted, existingSkillNames }: HCMImportPr
           title: "Habilidades encontradas!",
           description: `${newSkills.length} nova(s) habilidade(s) sugerida(s) pelo HCM.`,
         });
-        onSkillsExtracted(newSkills.map(item => item.skill));
+        onSkillsExtracted(newSkills.map(item => ({ name: item.skill, origin: item.origin })));
       } else {
         toast({
           title: "Todas já cadastradas",

@@ -21,6 +21,7 @@ interface SuggestedSkill {
   alreadyOwned?: boolean;
   currentProficiency?: number;
   similarTo?: string;
+  origin?: string;
 }
 
 interface SkillSearchSidebarProps {
@@ -203,10 +204,10 @@ export function SkillSearchSidebar({
             <HCMImport
               existingSkillNames={existingSkills.map(s => s.skillName)}
               onSkillsExtracted={(skills) => {
-                const newSuggestions = skills.map((name, index) => ({
-                  id: `hcm-${index}-${name}`,
-                  name,
-                  isNew: true,
+                const newSuggestions = skills.map((skill, index) => ({
+                  id: `hcm-${index}-${skill.name}`,
+                  name: skill.name,
+                  origin: skill.origin,
                 }));
                 setSuggestions(prev => [...newSuggestions, ...prev]);
               }}
@@ -332,7 +333,26 @@ function SkillSuggestionCard({ skill, onAdd }: SkillSuggestionCardProps) {
     >
       <div className="flex items-start gap-xsmall mb-sml">
         <span className="text-label text-foreground flex-1">{skill.name}</span>
-        {skill.isNew && (
+        {skill.origin && (
+          <span className={cn(
+            "text-small px-xsmall py-xxsmall rounded-small flex-shrink-0",
+            skill.origin === 'responsibilities' && "bg-blue-500/10 text-blue-600",
+            skill.origin === 'certifications' && "bg-green-500/10 text-green-600",
+            skill.origin === 'education' && "bg-purple-500/10 text-purple-600",
+            skill.origin === 'experience' && "bg-orange-500/10 text-orange-600",
+            skill.origin === 'position' && "bg-cyan-500/10 text-cyan-600",
+            skill.origin === 'inferred' && "bg-gray-500/10 text-gray-600",
+            !['responsibilities', 'certifications', 'education', 'experience', 'position', 'inferred'].includes(skill.origin) && "bg-primary/10 text-primary"
+          )}>
+            {skill.origin === 'responsibilities' ? 'Responsabilidades' :
+             skill.origin === 'certifications' ? 'Certificações' :
+             skill.origin === 'education' ? 'Formação' :
+             skill.origin === 'experience' ? 'Experiência' :
+             skill.origin === 'position' ? 'Cargo' :
+             skill.origin === 'inferred' ? 'Inferido' : skill.origin}
+          </span>
+        )}
+        {skill.isNew && !skill.origin && (
           <span className="text-small px-xsmall py-xxsmall bg-primary/10 text-primary rounded-small flex-shrink-0">
             Novo
           </span>
