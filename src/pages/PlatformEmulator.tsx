@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -18,7 +19,16 @@ const defaultToken = {
   tenantName: "",
 };
 
-const defaultServicesUrl = "https://cloud-leaf.senior.com.br/t/senior.com.br/bridge/1.0/rest/";
+const environments = {
+  leaf: {
+    name: "Leaf",
+    url: "https://cloud-leaf.senior.com.br/t/senior.com.br/bridge/1.0/rest/",
+  },
+  homologx: {
+    name: "Homologx",
+    url: "https://platform-homologx.senior.com.br/t/senior.com.br/bridge/1.0/rest/",
+  },
+};
 
 export default function PlatformEmulator() {
   const navigate = useNavigate();
@@ -27,6 +37,7 @@ export default function PlatformEmulator() {
   const [loginUsername, setLoginUsername] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [selectedEnv, setSelectedEnv] = useState<keyof typeof environments>("leaf");
   
   // Form state
   const [username, setUsername] = useState(defaultToken.username);
@@ -34,7 +45,7 @@ export default function PlatformEmulator() {
   const [email, setEmail] = useState(defaultToken.email);
   const [tenantName, setTenantName] = useState(defaultToken.tenantName);
   const [accessToken, setAccessToken] = useState(defaultToken.access_token);
-  const [servicesUrl, setServicesUrl] = useState(defaultServicesUrl);
+  const servicesUrl = environments[selectedEnv].url;
 
   const handleLogin = async () => {
     if (!loginUsername || !loginPassword) {
@@ -139,6 +150,24 @@ export default function PlatformEmulator() {
             </h2>
             
             <div className="space-y-default">
+              <div>
+                <label className="text-label-bold text-foreground block mb-xsmall">
+                  Ambiente
+                </label>
+                <Select value={selectedEnv} onValueChange={(v) => setSelectedEnv(v as keyof typeof environments)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="leaf">Leaf</SelectItem>
+                    <SelectItem value="homologx">Homologx</SelectItem>
+                  </SelectContent>
+                </Select>
+                <span className="text-small text-muted-foreground">
+                  {servicesUrl}
+                </span>
+              </div>
+              
               <div>
                 <label className="text-label-bold text-foreground block mb-xsmall">
                   Usuário
@@ -249,8 +278,8 @@ export default function PlatformEmulator() {
                 </label>
                 <Input 
                   value={servicesUrl}
-                  onChange={(e) => setServicesUrl(e.target.value)}
-                  placeholder="https://..."
+                  disabled
+                  className="bg-muted"
                 />
               </div>
               
