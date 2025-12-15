@@ -6,6 +6,7 @@ import { faStar as faStarRegular } from "@fortawesome/free-regular-svg-icons";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { StarRating } from "@/components/ui/star-rating";
+import { LinkedInImport } from "@/components/LinkedInImport";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { usePlatform } from "@/contexts/PlatformContext";
@@ -181,6 +182,22 @@ export function SkillSearchSidebar({
             </Button>
           </div>
 
+          {/* LinkedIn Import */}
+          <div className="p-xmedium border-b border-border">
+            <LinkedInImport
+              existingSkillNames={existingSkills.map(s => s.skillName)}
+              onSkillsExtracted={(skills) => {
+                // Add extracted skills as suggestions
+                const newSuggestions = skills.map((name, index) => ({
+                  id: `linkedin-${index}-${name}`,
+                  name,
+                  isNew: true,
+                }));
+                setSuggestions(prev => [...newSuggestions, ...prev]);
+              }}
+            />
+          </div>
+
           {/* Search Input */}
           <div className="p-xmedium border-b border-border">
             <div className="relative">
@@ -194,7 +211,6 @@ export function SkillSearchSidebar({
                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                 placeholder="Digite ou busque pela lupa"
                 className="pl-xbig pr-default"
-                autoFocus
               />
               {searchTerm && (
                 <button
