@@ -143,8 +143,12 @@ export function SkillSearchSidebar({
 
     const success = await onAddSkill(skill.name, proficiency);
     if (success) {
-      // Remove added skill from suggestions
-      setSuggestions(prev => prev.filter(s => s.name !== skill.name));
+      // Mark skill as already owned instead of removing
+      setSuggestions(prev => prev.map(s => 
+        s.name === skill.name 
+          ? { ...s, alreadyOwned: true, currentProficiency: proficiency }
+          : s
+      ));
     }
   };
 
@@ -152,7 +156,12 @@ export function SkillSearchSidebar({
     if (confirmSimilar) {
       const success = await onAddSkill(confirmSimilar.skill.name, confirmSimilar.proficiency);
       if (success) {
-        setSuggestions(prev => prev.filter(s => s.name !== confirmSimilar.skill.name));
+        // Mark skill as already owned instead of removing
+        setSuggestions(prev => prev.map(s => 
+          s.name === confirmSimilar.skill.name 
+            ? { ...s, alreadyOwned: true, currentProficiency: confirmSimilar.proficiency, similarTo: undefined }
+            : s
+        ));
       }
       setConfirmSimilar(null);
     }
@@ -189,10 +198,10 @@ export function SkillSearchSidebar({
             <LinkedInImport
               existingSkillNames={existingSkills.map(s => s.skillName)}
               onSkillsExtracted={(skills) => {
-                const newSuggestions = skills.map((name, index) => ({
-                  id: `linkedin-${index}-${name}`,
-                  name,
-                  isNew: true,
+                const newSuggestions = skills.map((skill, index) => ({
+                  id: `linkedin-${index}-${skill.name}`,
+                  name: skill.name,
+                  origin: skill.origin,
                 }));
                 setSuggestions(prev => [...newSuggestions, ...prev]);
               }}
@@ -338,20 +347,36 @@ function SkillSuggestionCard({ skill, onAdd }: SkillSuggestionCardProps) {
         {skill.origin && (
           <span className={cn(
             "text-small px-xsmall py-xxsmall rounded-small flex-shrink-0",
+            // HCM origins
             skill.origin === 'responsibilities' && "bg-blue-500/10 text-blue-600",
             skill.origin === 'certifications' && "bg-green-500/10 text-green-600",
             skill.origin === 'education' && "bg-purple-500/10 text-purple-600",
             skill.origin === 'experience' && "bg-orange-500/10 text-orange-600",
             skill.origin === 'position' && "bg-cyan-500/10 text-cyan-600",
             skill.origin === 'inferred' && "bg-gray-500/10 text-gray-600",
-            !['responsibilities', 'certifications', 'education', 'experience', 'position', 'inferred'].includes(skill.origin) && "bg-primary/10 text-primary"
+            // LinkedIn origins
+            skill.origin === 'competencias' && "bg-indigo-500/10 text-indigo-600",
+            skill.origin === 'tecnologias' && "bg-teal-500/10 text-teal-600",
+            skill.origin === 'metodologias' && "bg-amber-500/10 text-amber-600",
+            skill.origin === 'certificacoes' && "bg-green-500/10 text-green-600",
+            skill.origin === 'idiomas' && "bg-rose-500/10 text-rose-600",
+            skill.origin === 'experiencia' && "bg-orange-500/10 text-orange-600",
+            skill.origin === 'linkedin' && "bg-blue-600/10 text-blue-700",
+            !['responsibilities', 'certifications', 'education', 'experience', 'position', 'inferred', 'competencias', 'tecnologias', 'metodologias', 'certificacoes', 'idiomas', 'experiencia', 'linkedin'].includes(skill.origin) && "bg-primary/10 text-primary"
           )}>
             {skill.origin === 'responsibilities' ? 'Responsabilidades' :
              skill.origin === 'certifications' ? 'Certificações' :
              skill.origin === 'education' ? 'Formação' :
              skill.origin === 'experience' ? 'Experiência' :
              skill.origin === 'position' ? 'Cargo' :
-             skill.origin === 'inferred' ? 'Inferido' : skill.origin}
+             skill.origin === 'inferred' ? 'Inferido' :
+             skill.origin === 'competencias' ? 'Competências' :
+             skill.origin === 'tecnologias' ? 'Tecnologias' :
+             skill.origin === 'metodologias' ? 'Metodologias' :
+             skill.origin === 'certificacoes' ? 'Certificações' :
+             skill.origin === 'idiomas' ? 'Idiomas' :
+             skill.origin === 'experiencia' ? 'Experiência' :
+             skill.origin === 'linkedin' ? 'LinkedIn' : skill.origin}
           </span>
         )}
         {skill.isNew && !skill.origin && (

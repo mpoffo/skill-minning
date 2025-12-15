@@ -5,14 +5,19 @@ import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
+interface ExtractedSkill {
+  name: string;
+  origin: string;
+}
+
 interface LinkedInImportProps {
-  onSkillsExtracted: (skills: string[]) => void;
+  onSkillsExtracted: (skills: ExtractedSkill[]) => void;
   existingSkillNames: string[];
 }
 
 export function LinkedInImport({ onSkillsExtracted, existingSkillNames }: LinkedInImportProps) {
   const [isProcessing, setIsProcessing] = useState(false);
-  const [extractedSkills, setExtractedSkills] = useState<string[]>([]);
+  const [extractedSkills, setExtractedSkills] = useState<ExtractedSkill[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -49,12 +54,12 @@ export function LinkedInImport({ onSkillsExtracted, existingSkillNames }: Linked
         return;
       }
 
-      const skills = data.skills || [];
+      const skills: ExtractedSkill[] = data.skills || [];
       
       // Filter out skills the user already has
       const newSkills = skills.filter(
-        (skill: string) => !existingSkillNames.some(
-          existing => existing.toLowerCase() === skill.toLowerCase()
+        (skill) => !existingSkillNames.some(
+          existing => existing.toLowerCase() === skill.name.toLowerCase()
         )
       );
 
@@ -154,7 +159,7 @@ export function LinkedInImport({ onSkillsExtracted, existingSkillNames }: Linked
                 key={i}
                 className="text-small px-xsmall py-xxsmall bg-primary/10 text-primary rounded-small"
               >
-                {skill}
+                {skill.name}
               </span>
             ))}
             {extractedSkills.length > 10 && (
