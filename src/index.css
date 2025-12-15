@@ -1,96 +1,157 @@
+@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/700.css";
+@import "@fontsource/open-sans/400.css";
+@import "@fontsource/open-sans/700.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+/* Talent Mining Design System - Based on Senior Brand */
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-
+    /* Primary Colors */
+    --primary: 210 59% 60%; /* #5B9BD5 */
+    --primary-foreground: 0 0% 100%;
+    --primary-hover: 210 59% 50%;
+    
+    /* Secondary Colors */
+    --secondary: 200 14% 52%; /* #718A96 */
+    --secondary-foreground: 0 0% 100%;
+    --secondary-hover: 200 14% 42%;
+    
+    /* Grayscale */
+    --grayscale-100: 220 24% 17%; /* #1F2937 */
+    --grayscale-90: 217 23% 23%; /* #2D3748 */
+    --grayscale-80: 214 18% 30%; /* #3F4B5B */
+    --grayscale-70: 210 9% 40%; /* #5A6570 */
+    --grayscale-60: 213 6% 51%; /* #7A828A */
+    --grayscale-50: 213 8% 64%; /* #9CA3AB */
+    --grayscale-40: 213 13% 75%; /* #B8BFC7 */
+    --grayscale-30: 213 13% 83%; /* #CFD4D9 */
+    --grayscale-20: 220 13% 91%; /* #E5E7EB */
+    --grayscale-10: 220 14% 96%; /* #F3F4F6 */
+    --grayscale-5: 220 14% 98%; /* #F9FAFB */
+    --grayscale-0: 0 0% 100%; /* #FFFFFF */
+    
+    /* Feedback Colors */
+    --error: 0 65% 56%; /* #D94444 */
+    --error-foreground: 0 0% 100%;
+    --warning: 30 90% 61%; /* #F59E42 */
+    --warning-foreground: 220 24% 17%;
+    --attention: 44 90% 61%; /* #F5C842 */
+    --attention-foreground: 220 24% 17%;
+    --info: 207 54% 54%; /* #4A8FCA */
+    --info-foreground: 0 0% 100%;
+    --success: 151 84% 36%; /* #0FA958 */
+    --success-foreground: 0 0% 100%;
+    
+    /* Semantic Tokens */
+    --background: 220 14% 96%; /* grayscale-10 */
+    --foreground: 220 24% 17%; /* grayscale-100 */
+    
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-
+    --card-foreground: 220 24% 17%;
+    
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-
-    --radius: 0.5rem;
-
+    --popover-foreground: 220 24% 17%;
+    
+    --muted: 220 14% 98%; /* grayscale-5 */
+    --muted-foreground: 210 9% 40%; /* grayscale-70 */
+    
+    --accent: 220 14% 98%;
+    --accent-foreground: 220 24% 17%;
+    
+    --destructive: 0 65% 56%;
+    --destructive-foreground: 0 0% 100%;
+    
+    --border: 220 13% 91%; /* grayscale-20 */
+    --input: 213 13% 75%; /* grayscale-40 */
+    --ring: 210 59% 60%;
+    
+    /* Border Radius */
+    --radius: 4px;
+    --radius-xxsmall: 1px;
+    --radius-xsmall: 2px;
+    --radius-small: 3px;
+    --radius-medium: 4px;
+    --radius-big: 6px;
+    --radius-xxbig: 10px;
+    --radius-huge: 15px;
+    
+    /* Spacing */
+    --space-xxsmall: 4px;
+    --space-xsmall: 8px;
+    --space-small: 12px;
+    --space-default: 16px;
+    --space-medium: 20px;
+    --space-xmedium: 24px;
+    --space-big: 32px;
+    --space-xbig: 40px;
+    --space-xxbig: 48px;
+    --space-huge: 56px;
+    --space-xhuge: 64px;
+    --space-xxhuge: 72px;
+    
+    /* Shadows */
+    --shadow-dp01: 0 1px 2px rgba(31, 41, 55, 0.05);
+    --shadow-dp02: 0 1px 3px rgba(31, 41, 55, 0.1), 0 1px 2px rgba(31, 41, 55, 0.06);
+    --shadow-dp04: 0 4px 6px rgba(31, 41, 55, 0.1), 0 2px 4px rgba(31, 41, 55, 0.06);
+    --shadow-dp06: 0 10px 15px rgba(31, 41, 55, 0.1), 0 4px 6px rgba(31, 41, 55, 0.05);
+    --shadow-dp08: 0 15px 25px rgba(31, 41, 55, 0.15), 0 5px 10px rgba(31, 41, 55, 0.05);
+    --shadow-dp12: 0 20px 35px rgba(31, 41, 55, 0.15), 0 8px 15px rgba(31, 41, 55, 0.05);
+    --shadow-dp16: 0 25px 50px rgba(31, 41, 55, 0.2), 0 10px 20px rgba(31, 41, 55, 0.05);
+    --shadow-dp24: 0 32px 64px rgba(31, 41, 55, 0.25), 0 16px 32px rgba(31, 41, 55, 0.1);
+    
+    /* Sidebar */
     --sidebar-background: 0 0% 98%;
-
     --sidebar-foreground: 240 5.3% 26.1%;
-
     --sidebar-primary: 240 5.9% 10%;
-
     --sidebar-primary-foreground: 0 0% 98%;
-
     --sidebar-accent: 240 4.8% 95.9%;
-
     --sidebar-accent-foreground: 240 5.9% 10%;
-
     --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-ring: 210 59% 60%;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
+    --background: 220 24% 17%;
+    --foreground: 220 14% 98%;
+    
+    --card: 217 23% 23%;
+    --card-foreground: 220 14% 98%;
+    
+    --popover: 217 23% 23%;
+    --popover-foreground: 220 14% 98%;
+    
+    --primary: 210 59% 60%;
+    --primary-foreground: 0 0% 100%;
+    
+    --secondary: 200 14% 52%;
+    --secondary-foreground: 0 0% 100%;
+    
+    --muted: 214 18% 30%;
+    --muted-foreground: 213 8% 64%;
+    
+    --accent: 214 18% 30%;
+    --accent-foreground: 220 14% 98%;
+    
+    --destructive: 0 65% 56%;
+    --destructive-foreground: 0 0% 100%;
+    
+    --border: 214 18% 30%;
+    --input: 214 18% 30%;
+    --ring: 210 59% 60%;
+    
+    --sidebar-background: 220 24% 17%;
+    --sidebar-foreground: 220 14% 98%;
+    --sidebar-primary: 210 59% 60%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-accent: 214 18% 30%;
+    --sidebar-accent-foreground: 220 14% 98%;
+    --sidebar-border: 214 18% 30%;
+    --sidebar-ring: 210 59% 60%;
   }
 }
 
@@ -100,6 +161,90 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-body;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading;
+  }
+}
+
+@layer utilities {
+  /* Typography utilities */
+  .text-h1 {
+    @apply font-heading text-2xl font-normal leading-[150%];
+  }
+  
+  .text-h2 {
+    @apply font-heading text-xl font-normal leading-[150%];
+  }
+  
+  .text-h2-bold {
+    @apply font-heading text-xl font-bold leading-[150%];
+  }
+  
+  .text-h3 {
+    @apply font-heading text-base font-normal leading-[150%];
+  }
+  
+  .text-h3-bold {
+    @apply font-heading text-base font-bold leading-[150%];
+  }
+  
+  .text-h3-caps {
+    @apply font-heading text-base font-normal leading-[150%] uppercase;
+  }
+  
+  .text-label {
+    @apply font-body text-sm font-normal leading-[150%];
+  }
+  
+  .text-label-bold {
+    @apply font-body text-sm font-bold leading-[150%];
+  }
+  
+  .text-label-bold-caps {
+    @apply font-body text-sm font-bold leading-[150%] uppercase;
+  }
+  
+  .text-small {
+    @apply font-body text-xs font-normal leading-[150%];
+  }
+  
+  .text-small-bold {
+    @apply font-body text-xs font-bold leading-[150%];
+  }
+  
+  /* Shadow utilities */
+  .shadow-dp01 {
+    box-shadow: var(--shadow-dp01);
+  }
+  
+  .shadow-dp02 {
+    box-shadow: var(--shadow-dp02);
+  }
+  
+  .shadow-dp04 {
+    box-shadow: var(--shadow-dp04);
+  }
+  
+  .shadow-dp06 {
+    box-shadow: var(--shadow-dp06);
+  }
+  
+  .shadow-dp08 {
+    box-shadow: var(--shadow-dp08);
+  }
+  
+  .shadow-dp12 {
+    box-shadow: var(--shadow-dp12);
+  }
+  
+  .shadow-dp16 {
+    box-shadow: var(--shadow-dp16);
+  }
+  
+  .shadow-dp24 {
+    box-shadow: var(--shadow-dp24);
   }
 }
