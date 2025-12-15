@@ -60,12 +60,13 @@ serve(async (req) => {
                 type: 'text',
                 text: `Você está analisando um PDF de perfil do LinkedIn para extrair HABILIDADES TÉCNICAS E COMPORTAMENTAIS que a pessoa POSSUI.
 
-ONDE PROCURAR:
-- Seção "Competências" / "Skills" / "Principais competências"
-- Tecnologias e ferramentas mencionadas que a pessoa UTILIZOU
-- Metodologias que a pessoa APLICOU
-- Certificações obtidas
-- Idiomas
+ONDE PROCURAR E CLASSIFICAR (use estes valores exatos para "origin"):
+- "competencias" = Seção "Competências" / "Skills" / "Principais competências"
+- "tecnologias" = Tecnologias e ferramentas mencionadas que a pessoa UTILIZOU
+- "metodologias" = Metodologias que a pessoa APLICOU
+- "certificacoes" = Certificações obtidas
+- "idiomas" = Idiomas
+- "experiencia" = Habilidades mencionadas em experiências profissionais
 
 REGRAS CRÍTICAS DE EXTRAÇÃO:
 1. Extraia APENAS habilidades que a pessoa POSSUI ou DOMINA
@@ -83,9 +84,10 @@ REGRAS CRÍTICAS DE EXTRAÇÃO:
 4. Normalize nomes (ex: "Python programming" → "Python")
 5. Remova duplicatas
 6. NÃO invente habilidades não mencionadas
+7. Classifique cada habilidade com sua ORIGEM (de onde foi extraída no documento)
 
 Responda APENAS com JSON:
-{"skills": ["Skill 1", "Skill 2", ...]}`,
+{"skills": [{"name": "Nome da Habilidade", "origin": "competencias"}, {"name": "Outra Habilidade", "origin": "tecnologias"}, ...]}`,
               },
               {
                 type: 'file',
@@ -113,7 +115,7 @@ Responda APENAS com JSON:
     console.log('AI Response:', JSON.stringify(aiResult));
 
     // Extract skills from AI response
-    let skills: string[] = [];
+    let skills: Array<{name: string; origin: string}> = [];
     
     try {
       const content = aiResult.choices?.[0]?.message?.content || '';
@@ -123,7 +125,12 @@ Responda APENAS com JSON:
       const jsonMatch = content.match(/\{[\s\S]*"skills"[\s\S]*\}/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
-        skills = parsed.skills || [];
+        // Handle both old format (string[]) and new format (object[])
+        if (Array.isArray(parsed.skills)) {
+          skills = parsed.skills.map((s: string | {name: string; origin: string}) => 
+            typeof s === 'string' ? { name: s, origin: 'linkedin' } : s
+          );
+        }
       }
     } catch (parseError) {
       console.error('Error parsing AI response:', parseError);
