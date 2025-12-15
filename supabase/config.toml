@@ -5,3 +5,9 @@ verify_jwt = false
 
 [functions.parse-linkedin-pdf]
 verify_jwt = false
+
+[functions.hcm-mining]
+verify_jwt = false
+
+[functions.semantic-skills]
+verify_jwt = false
