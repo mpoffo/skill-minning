@@ -261,20 +261,25 @@ REGRAS:
     console.log(`Found ${userSkills?.length || 0} user_skills records`);
 
     // Build user skill map: userId -> skillId -> proficiency
+    // Also collect unique user_ids from user_skills
     const userSkillMap: Record<string, Record<string, number>> = {};
+    const uniqueUserIds = new Set<string>();
+    
     (userSkills || []).forEach((us) => {
       if (!userSkillMap[us.user_id]) {
         userSkillMap[us.user_id] = {};
       }
       userSkillMap[us.user_id][us.skill_id] = us.proficiency;
+      uniqueUserIds.add(us.user_id);
     });
 
-    // Calculate scores for each user
+    console.log(`Found ${uniqueUserIds.size} unique users with skills`);
+
+    // Calculate scores for each user based on user_skills.user_id
     const rankedUsers: RankedUser[] = [];
 
-    for (const user of users) {
-      // Use user_name instead of UUID id since user_skills.user_id stores the username
-      const userSkillData = userSkillMap[user.user_name] || {};
+    for (const userId of uniqueUserIds) {
+      const userSkillData = userSkillMap[userId] || {};
       const matchedSkills: UserSkillMatch[] = [];
       let totalWeightedScore = 0;
       let maxPossibleScore = 0;
@@ -332,18 +337,18 @@ REGRAS:
       if (matchedSkills.length > 0 && maxPossibleScore > 0) {
         const matchScore = (totalWeightedScore / maxPossibleScore) * 100;
         
-        // Get collaborator details - try matching by user_name first, then by full_name/employee_name
-        const normalizedUserName = user.user_name.trim().toLowerCase();
-        const normalizedFullName = (user.full_name || "").trim().toLowerCase();
-        
-        let collab = collaboratorsMapByUserName[normalizedUserName];
-        if (!collab && normalizedFullName) {
-          collab = collaboratorsMapByName[normalizedFullName];
-        }
+        // Find collaborator by user_id (which is the user_name from user_skills) matching collaborators.user_name
+        const normalizedUserId = userId.trim().toLowerCase();
+        const collab = collaboratorsMapByUserName[normalizedUserId];
         
         if (!collab) {
-          console.log(`No collaborator found for user: ${user.user_name} / ${user.full_name}`);
+          console.log(`No collaborator found for user_id: ${userId}`);
+        } else {
+          console.log(`Found collaborator for ${userId}: ${collab.employee_name}, leader: ${collab.leader_name}`);
         }
+        
+        // Get full_name from collaborator if available, otherwise use userId
+        const fullName = collab?.employee_name || userId;
         
         // Parse details from collaborator data
         const details: UserDetails | undefined = collab ? {
@@ -364,9 +369,9 @@ REGRAS:
         } : undefined;
         
         rankedUsers.push({
-          userId: user.id,
-          userName: user.user_name,
-          fullName: user.full_name || user.user_name,
+          userId: collab?.user_name || userId,
+          userName: userId,
+          fullName,
           leaderName: collab?.leader_name,
           matchScore,
           matchedSkills,
