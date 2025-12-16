@@ -8,6 +8,7 @@ import MySkills from "./pages/MySkills";
 import TalentMining from "./pages/TalentMining";
 import UserSkillsView from "./pages/UserSkillsView";
 import PlatformEmulator from "./pages/PlatformEmulator";
+import BatchProcessing from "./pages/BatchProcessing";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -33,6 +34,11 @@ const App = () => (
           <Route path="/user-skills/:userName" element={
             <PlatformProvider>
               <UserSkillsView />
+            </PlatformProvider>
+          } />
+          <Route path="/batch-processing" element={
+            <PlatformProvider>
+              <BatchProcessing />
             </PlatformProvider>
           } />
           <Route path="*" element={<NotFound />} />
