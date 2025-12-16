@@ -64,7 +64,7 @@ export default function TalentMining() {
     const fetchJobPositions = async () => {
       try {
         const response = await fetch(
-          "https://gist.githubusercontent.com/mpoffo/408eac5a3e8d97477f004d3ad2631a56/raw/d757362aacdb04e888ac0461545ae3f24c7c0355/cargos.json"
+          "https://gist.githubusercontent.com/mpoffo/408eac5a3e8d97477f004d3ad2631a56/raw/6b57ec6cce610f7da2f02fb32a6c43c4b6968e4a/cargos.json"
         );
         const data = await response.json();
         setJobPositions(data);
