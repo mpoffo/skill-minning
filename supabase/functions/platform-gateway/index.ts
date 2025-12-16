@@ -96,8 +96,13 @@ serve(async (req) => {
       }
 
       console.log(`CheckAccess: resource=${resource}, permission=${permission}`);
+      console.log(`Using token (first 10 chars): ${accessToken.substring(0, 10)}...`);
+      
+      const checkAccessUrl = `${servicesUrl}platform/authorization/queries/checkAccess`;
+      console.log(`CheckAccess URL: ${checkAccessUrl}`);
 
-      const checkAccessResponse = await fetch(`${servicesUrl}platform/authorization/queries/checkAccess`, {
+      // Try with Bearer token first
+      let checkAccessResponse = await fetch(checkAccessUrl, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
@@ -113,7 +118,49 @@ serve(async (req) => {
         }),
       });
 
-      console.log(`CheckAccess response status: ${checkAccessResponse.status}`);
+      console.log(`CheckAccess response status (Bearer): ${checkAccessResponse.status}`);
+
+      // If Bearer fails with 401, try with just the token (some Senior APIs use this)
+      if (checkAccessResponse.status === 401) {
+        console.log('Bearer auth failed, trying with direct token...');
+        checkAccessResponse = await fetch(checkAccessUrl, {
+          method: 'POST',
+          headers: {
+            'Authorization': accessToken,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            permissions: [
+              {
+                resource,
+                action: permission,
+              }
+            ],
+          }),
+        });
+        console.log(`CheckAccess response status (direct token): ${checkAccessResponse.status}`);
+      }
+
+      // If still fails, try with X-Access-Token header
+      if (checkAccessResponse.status === 401) {
+        console.log('Direct token auth failed, trying with X-Access-Token header...');
+        checkAccessResponse = await fetch(checkAccessUrl, {
+          method: 'POST',
+          headers: {
+            'X-Access-Token': accessToken,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            permissions: [
+              {
+                resource,
+                action: permission,
+              }
+            ],
+          }),
+        });
+        console.log(`CheckAccess response status (X-Access-Token): ${checkAccessResponse.status}`);
+      }
 
       if (!checkAccessResponse.ok) {
         const errorText = await checkAccessResponse.text();
