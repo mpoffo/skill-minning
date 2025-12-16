@@ -92,7 +92,8 @@ serve(async (req) => {
     console.log(`Found ${users.length} users`);
 
     // Fetch collaborators data from external source for additional details
-    let collaboratorsMap: Record<string, Collaborator> = {};
+    let collaboratorsMapByUserName: Record<string, Collaborator> = {};
+    let collaboratorsMapByName: Record<string, Collaborator> = {};
     try {
       const collabResponse = await fetch(
         "https://gist.githubusercontent.com/mpoffo/76cb8872843cfd03ff3b44c29ba1f485/raw/69460f00cfa5177ab5ddddcb067e807885b54808/gistfile1.txt"
@@ -101,10 +102,18 @@ serve(async (req) => {
         const collaborators: Collaborator[] = await collabResponse.json();
         for (const collab of collaborators) {
           if (collab.user_name) {
-            collaboratorsMap[collab.user_name.toLowerCase()] = collab;
+            // Map by user_name (normalized)
+            const normalizedUserName = collab.user_name.trim().toLowerCase();
+            collaboratorsMapByUserName[normalizedUserName] = collab;
+          }
+          if (collab.employee_name) {
+            // Map by employee_name (normalized) for fallback matching
+            const normalizedName = collab.employee_name.trim().toLowerCase();
+            collaboratorsMapByName[normalizedName] = collab;
           }
         }
-        console.log(`Loaded ${Object.keys(collaboratorsMap).length} collaborators for details`);
+        console.log(`Loaded ${Object.keys(collaboratorsMapByUserName).length} collaborators by user_name`);
+        console.log(`Loaded ${Object.keys(collaboratorsMapByName).length} collaborators by employee_name`);
       }
     } catch (collabErr) {
       console.error("Error fetching collaborators data:", collabErr);
@@ -323,25 +332,35 @@ REGRAS:
       if (matchedSkills.length > 0 && maxPossibleScore > 0) {
         const matchScore = (totalWeightedScore / maxPossibleScore) * 100;
         
-        // Get collaborator details if available
-        const collab = collaboratorsMap[user.user_name.toLowerCase()];
+        // Get collaborator details - try matching by user_name first, then by full_name/employee_name
+        const normalizedUserName = user.user_name.trim().toLowerCase();
+        const normalizedFullName = (user.full_name || "").trim().toLowerCase();
+        
+        let collab = collaboratorsMapByUserName[normalizedUserName];
+        if (!collab && normalizedFullName) {
+          collab = collaboratorsMapByName[normalizedFullName];
+        }
+        
+        if (!collab) {
+          console.log(`No collaborator found for user: ${user.user_name} / ${user.full_name}`);
+        }
         
         // Parse details from collaborator data
         const details: UserDetails | undefined = collab ? {
-          certifications: collab.certifications ? collab.certifications.split(',').map(s => s.trim()).filter(Boolean) : undefined,
+          certifications: collab.certifications ? collab.certifications.split(',').map((s: string) => s.trim()).filter(Boolean) : undefined,
           graduation: [
-            ...(collab.graduation ? collab.graduation.split(',').map(s => s.trim()).filter(Boolean) : []),
-            ...(collab.postgraduation ? collab.postgraduation.split(',').map(s => s.trim()).filter(Boolean) : [])
+            ...(collab.graduation ? collab.graduation.split(',').map((s: string) => s.trim()).filter(Boolean) : []),
+            ...(collab.postgraduation ? collab.postgraduation.split(',').map((s: string) => s.trim()).filter(Boolean) : [])
           ].filter(Boolean).length > 0 
             ? [
-                ...(collab.graduation ? collab.graduation.split(',').map(s => s.trim()).filter(Boolean) : []),
-                ...(collab.postgraduation ? collab.postgraduation.split(',').map(s => s.trim()).filter(Boolean) : [])
+                ...(collab.graduation ? collab.graduation.split(',').map((s: string) => s.trim()).filter(Boolean) : []),
+                ...(collab.postgraduation ? collab.postgraduation.split(',').map((s: string) => s.trim()).filter(Boolean) : [])
               ]
             : undefined,
           languages: collab.language_proficiency || undefined,
           pdi: collab.PDI || undefined,
-          feedbacks: collab.feedbacks ? collab.feedbacks.split(',').map(s => s.trim()).filter(Boolean) : undefined,
-          hardSkills: collab.hard_skills ? collab.hard_skills.split(',').map(s => s.trim()).filter(Boolean) : undefined,
+          feedbacks: collab.feedbacks ? collab.feedbacks.split(',').map((s: string) => s.trim()).filter(Boolean) : undefined,
+          hardSkills: collab.hard_skills ? collab.hard_skills.split('|').map((s: string) => s.trim()).filter(Boolean) : undefined,
         } : undefined;
         
         rankedUsers.push({
