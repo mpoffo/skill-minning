@@ -188,39 +188,63 @@ async function processBatchDirectly(
   let usersCreated = 0;
   let errors = 0;
 
-  for (const collaborator of batch) {
-    try {
-      // Skip if no user_name or hard_skills
+  try {
+    // 1. Get all existing users for this tenant (single query)
+    const { data: existingUsers } = await supabase
+      .from("tenant_users")
+      .select("user_name")
+      .eq("tenant_name", tenantName);
+    
+    const existingUserNames = new Set((existingUsers || []).map((u: any) => u.user_name));
+
+    // 2. Get all existing skills for this tenant (single query)
+    const { data: existingSkills } = await supabase
+      .from("skills")
+      .select("id, name")
+      .eq("tenant_name", tenantName);
+    
+    const skillNameToId = new Map<string, string>();
+    (existingSkills || []).forEach((s: any) => skillNameToId.set(s.name, s.id));
+
+    // 3. Get all existing user_skills for this tenant (single query)
+    const { data: existingUserSkills } = await supabase
+      .from("user_skills")
+      .select("user_id, skill_id")
+      .eq("tenant_name", tenantName);
+    
+    const existingUserSkillKeys = new Set(
+      (existingUserSkills || []).map((us: any) => `${us.user_id}|${us.skill_id}`)
+    );
+
+    // 4. Prepare batch data
+    const usersToInsert: any[] = [];
+    const skillsToInsert: string[] = [];
+    const userSkillsToInsert: { user_id: string; skill_name: string; proficiency: number }[] = [];
+
+    for (const collaborator of batch) {
       if (!collaborator.user_name || !collaborator.hard_skills) {
         console.log(`Skipping collaborator without user_name or hard_skills: ${collaborator.employee_name}`);
         continue;
       }
 
-      // Upsert tenant_user
-      const { data: existingUser } = await supabase
-        .from("tenant_users")
-        .select("id")
-        .eq("user_name", collaborator.user_name)
-        .eq("tenant_name", tenantName)
-        .maybeSingle();
-
-      if (!existingUser) {
-        const { error: userError } = await supabase.from("tenant_users").insert({
+      // Check if user needs to be created
+      if (!existingUserNames.has(collaborator.user_name)) {
+        usersToInsert.push({
           user_name: collaborator.user_name,
           full_name: collaborator.employee_name,
           email: `${collaborator.user_name}@${tenantName}`,
           tenant_name: tenantName,
         });
-        if (!userError) usersCreated++;
+        existingUserNames.add(collaborator.user_name); // Avoid duplicates in batch
       }
 
-      // Parse hard_skills (separated by |)
+      // Parse skills
       const skills = collaborator.hard_skills
         .split('|')
         .map(s => s.trim())
         .filter(s => s.length > 0);
 
-      // Determine proficiency based on seniority
+      // Determine proficiency
       const seniorityLower = (collaborator.seniority || '').toLowerCase();
       let proficiency = 3;
       if (seniorityLower.includes('junior') || seniorityLower.includes('júnior') || seniorityLower.includes('trainee') || seniorityLower.includes('estagiário')) {
@@ -231,65 +255,101 @@ async function processBatchDirectly(
         proficiency = 4;
       }
 
-      // Process each skill
       for (const skillName of skills) {
         skillsExtracted++;
-
-        // Check if skill exists
-        const { data: existingSkill } = await supabase
-          .from("skills")
-          .select("id")
-          .eq("name", skillName)
-          .eq("tenant_name", tenantName)
-          .maybeSingle();
-
-        let skillId: string;
-
-        if (existingSkill) {
-          skillId = existingSkill.id;
-        } else {
-          // Create new skill
-          const { data: newSkill, error: skillError } = await supabase
-            .from("skills")
-            .insert({ name: skillName, tenant_name: tenantName, validated: false })
-            .select("id")
-            .single();
-
-          if (skillError || !newSkill) {
-            console.error(`Error creating skill ${skillName}:`, skillError);
-            errors++;
-            continue;
-          }
-          skillId = newSkill.id;
-          skillsCreated++;
+        
+        // Check if skill needs to be created
+        if (!skillNameToId.has(skillName)) {
+          skillsToInsert.push(skillName);
+          skillNameToId.set(skillName, 'pending'); // Mark as pending
         }
 
-        // Check if user_skill exists
-        const { data: existingUserSkill } = await supabase
-          .from("user_skills")
-          .select("id")
-          .eq("user_id", collaborator.user_name)
-          .eq("skill_id", skillId)
-          .eq("tenant_name", tenantName)
-          .maybeSingle();
-
-        if (!existingUserSkill) {
-          const { error: userSkillError } = await supabase.from("user_skills").insert({
-            user_id: collaborator.user_name,
-            skill_id: skillId,
-            tenant_name: tenantName,
-            proficiency: proficiency,
-          });
-          if (userSkillError) {
-            console.error(`Error creating user_skill:`, userSkillError);
-            errors++;
-          }
-        }
+        // Prepare user_skill (will resolve skill_id after batch insert)
+        userSkillsToInsert.push({
+          user_id: collaborator.user_name,
+          skill_name: skillName,
+          proficiency,
+        });
       }
-    } catch (error) {
-      console.error(`Error processing collaborator ${collaborator.user_name}:`, error);
-      errors++;
     }
+
+    // 5. Batch insert users
+    if (usersToInsert.length > 0) {
+      const { error: usersError } = await supabase
+        .from("tenant_users")
+        .insert(usersToInsert);
+      
+      if (usersError) {
+        console.error('Error inserting users:', usersError);
+        errors += usersToInsert.length;
+      } else {
+        usersCreated = usersToInsert.length;
+      }
+    }
+
+    // 6. Batch insert skills (deduplicated)
+    const uniqueSkillsToInsert = [...new Set(skillsToInsert)];
+    if (uniqueSkillsToInsert.length > 0) {
+      const skillRecords = uniqueSkillsToInsert.map(name => ({
+        name,
+        tenant_name: tenantName,
+        validated: false,
+      }));
+
+      const { data: newSkills, error: skillsError } = await supabase
+        .from("skills")
+        .insert(skillRecords)
+        .select("id, name");
+
+      if (skillsError) {
+        console.error('Error inserting skills:', skillsError);
+        errors += uniqueSkillsToInsert.length;
+      } else {
+        skillsCreated = uniqueSkillsToInsert.length;
+        // Update map with new skill IDs
+        (newSkills || []).forEach((s: any) => skillNameToId.set(s.name, s.id));
+      }
+    }
+
+    // 7. Batch insert user_skills (deduplicated)
+    const userSkillRecords: any[] = [];
+    const processedKeys = new Set<string>();
+
+    for (const us of userSkillsToInsert) {
+      const skillId = skillNameToId.get(us.skill_name);
+      if (!skillId || skillId === 'pending') {
+        errors++;
+        continue;
+      }
+
+      const key = `${us.user_id}|${skillId}`;
+      if (!existingUserSkillKeys.has(key) && !processedKeys.has(key)) {
+        userSkillRecords.push({
+          user_id: us.user_id,
+          skill_id: skillId,
+          tenant_name: tenantName,
+          proficiency: us.proficiency,
+        });
+        processedKeys.add(key);
+      }
+    }
+
+    if (userSkillRecords.length > 0) {
+      const { error: userSkillsError } = await supabase
+        .from("user_skills")
+        .insert(userSkillRecords);
+
+      if (userSkillsError) {
+        console.error('Error inserting user_skills:', userSkillsError);
+        errors += userSkillRecords.length;
+      }
+    }
+
+    console.log(`Batch processed: ${usersCreated} users, ${skillsCreated} skills, ${userSkillRecords.length} user_skills`);
+
+  } catch (error) {
+    console.error('Error in batch processing:', error);
+    errors++;
   }
 
   return { skillsExtracted, skillsCreated, usersCreated, errors };
