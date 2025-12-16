@@ -9,7 +9,8 @@ interface Collaborator {
   employee_id: string;
   user_name: string;
   employee_name: string;
-  job_position: string;
+  joposition: string; // Note: typo in source JSON
+  job_description: string;
   seniority: string;
   responsabilities: string;
   graduation: string;
@@ -17,7 +18,9 @@ interface Collaborator {
   certifications: string;
   language_proficiency: string;
   PDI: string;
-  feedback: string;
+  feedbacks: string;
+  leader_name: string;
+  leader_user_name: string;
   hard_skills?: string;
 }
 
@@ -116,7 +119,7 @@ serve(async (req) => {
         return {
           user_name: c.user_name,
           employee_name: sanitizeValue(c.employee_name) || c.user_name,
-          job_position: sanitizeValue(c.job_position) || "não informado",
+          job_position: sanitizeValue(c.joposition) || "não informado",
           seniority: sanitizeValue(c.seniority) || "não informado",
           proficiency_range: profRange,
           data
