@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { User, Search, Database } from "lucide-react";
 
 const defaultToken = {
   scope: "browser+device_web",
@@ -110,7 +111,7 @@ export default function PlatformEmulator() {
     }
   };
 
-  const handleNavigateToSkills = () => {
+  const saveContextAndNavigate = (path: string) => {
     if (!username || !tenantName) {
       toast.error("Preencha pelo menos o username e tenant name");
       return;
@@ -132,8 +133,12 @@ export default function PlatformEmulator() {
     sessionStorage.setItem('platformContext', JSON.stringify(platformContext));
     
     toast.success("Contexto salvo! Redirecionando...");
-    navigate('/my-skills');
+    navigate(path);
   };
+
+  const handleNavigateToSkills = () => saveContextAndNavigate('/my-skills');
+  const handleNavigateToTalentMining = () => saveContextAndNavigate('/talent-mining');
+  const handleNavigateToBatchProcessing = () => saveContextAndNavigate('/batch-processing');
 
   return (
     <div className="min-h-screen bg-grayscale-10 p-xmedium">
@@ -283,13 +288,34 @@ export default function PlatformEmulator() {
                 />
               </div>
               
-              <div className="md:col-span-2 pt-default border-t border-border">
-                <Button 
-                  onClick={handleNavigateToSkills}
-                  className="w-full"
-                >
-                  Acessar Minhas Habilidades
-                </Button>
+              <div className="md:col-span-2 pt-default border-t border-border space-y-sml">
+                <p className="text-label text-muted-foreground mb-sml">Navegação</p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-sml">
+                  <Button 
+                    onClick={handleNavigateToSkills}
+                    variant="default"
+                    className="w-full gap-sml"
+                  >
+                    <User className="h-4 w-4" />
+                    Minhas Habilidades
+                  </Button>
+                  <Button 
+                    onClick={handleNavigateToTalentMining}
+                    variant="outline"
+                    className="w-full gap-sml"
+                  >
+                    <Search className="h-4 w-4" />
+                    Talent Mining
+                  </Button>
+                  <Button 
+                    onClick={handleNavigateToBatchProcessing}
+                    variant="outline"
+                    className="w-full gap-sml"
+                  >
+                    <Database className="h-4 w-4" />
+                    Processamento em Lote
+                  </Button>
+                </div>
               </div>
             </div>
           </Card>
