@@ -101,8 +101,8 @@ serve(async (req) => {
       const checkAccessUrl = `${servicesUrl}platform/authorization/queries/checkAccess`;
       console.log(`CheckAccess URL: ${checkAccessUrl}`);
 
-      // Try with Bearer token first
-      let checkAccessResponse = await fetch(checkAccessUrl, {
+      // Use Bearer token
+      const checkAccessResponse = await fetch(checkAccessUrl, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
@@ -118,96 +118,25 @@ serve(async (req) => {
         }),
       });
 
-      console.log(`CheckAccess response status (Bearer): ${checkAccessResponse.status}`);
-      let lastAuthVariant: 'bearer' | 'direct' | 'x-access-token' = 'bearer';
-
-      // If Bearer fails with 401, try with just the token (some Senior APIs use this)
-      if (checkAccessResponse.status === 401) {
-        const t = await checkAccessResponse.text().catch(() => '');
-        console.log(`Bearer auth failed body: ${t}`);
-
-        console.log('Bearer auth failed, trying with direct token...');
-        lastAuthVariant = 'direct';
-        checkAccessResponse = await fetch(checkAccessUrl, {
-          method: 'POST',
-          headers: {
-            'Authorization': accessToken,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            permissions: [
-              {
-                resource,
-                action: permission,
-              }
-            ],
-          }),
-        });
-        console.log(`CheckAccess response status (direct token): ${checkAccessResponse.status}`);
-      }
-
-      // If still fails, try with X-Access-Token header
-      if (checkAccessResponse.status === 401) {
-        const t = await checkAccessResponse.text().catch(() => '');
-        console.log(`Direct token auth failed body: ${t}`);
-
-        console.log('Direct token auth failed, trying with X-Access-Token header...');
-        lastAuthVariant = 'x-access-token';
-        checkAccessResponse = await fetch(checkAccessUrl, {
-          method: 'POST',
-          headers: {
-            'X-Access-Token': accessToken,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            permissions: [
-              {
-                resource,
-                action: permission,
-              }
-            ],
-          }),
-        });
-        console.log(`CheckAccess response status (X-Access-Token): ${checkAccessResponse.status}`);
-      }
+      console.log(`CheckAccess response status: ${checkAccessResponse.status}`);
 
       if (!checkAccessResponse.ok) {
         const errorText = await checkAccessResponse.text().catch(() => '');
-        console.error(`CheckAccess failed (${lastAuthVariant}): ${errorText}`);
-
-        // Diagnostic: check whether this token can still call getUser
-        let getUserDiagnostic: { status: number; body?: unknown } | undefined;
-        try {
-          const diagResp = await fetch(`${servicesUrl}platform/user/queries/getUser`, {
-            method: 'GET',
-            headers: {
-              'Authorization': `Bearer ${accessToken}`,
-            },
-          });
-
-          let diagBody: unknown = undefined;
-          try {
-            const txt = await diagResp.text();
-            diagBody = txt ? JSON.parse(txt) : txt;
-          } catch {
-            // ignore parse errors
-          }
-
-          getUserDiagnostic = { status: diagResp.status, body: diagBody };
-          console.log(`GetUser diagnostic status: ${diagResp.status}`);
-        } catch (diagErr) {
-          console.log('GetUser diagnostic failed:', diagErr);
-        }
+        console.error(`CheckAccess failed: ${errorText}`);
+        
+        // Generate curl command for debugging
+        const curlBody = JSON.stringify({
+          permissions: [{ resource, action: permission }]
+        });
+        const curlCommand = `curl -X POST '${checkAccessUrl}' -H 'Authorization: Bearer ${accessToken}' -H 'Content-Type: application/json' -d '${curlBody}'`;
+        console.log(`CURL DEBUG:\n${curlCommand}`);
 
         return new Response(
           JSON.stringify({
             error: 'Failed to check access',
             details: errorText,
             hasAccess: false,
-            diagnostic: {
-              authVariantTriedLast: lastAuthVariant,
-              getUser: getUserDiagnostic,
-            },
+            curlCommand,
           }),
           { status: checkAccessResponse.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
@@ -220,7 +149,7 @@ serve(async (req) => {
       const hasAccess = accessData.ok === true || 
                        accessData.allowed === true || 
                        accessData.authorized === true ||
-                       (Array.isArray(accessData.permissions) && accessData.permissions.some((p: any) => p.allowed === true));
+                       (Array.isArray(accessData.permissions) && accessData.permissions.some((p: any) => p.allowed === true || p.authorized === true));
 
       return new Response(
         JSON.stringify({ 
