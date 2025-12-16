@@ -59,6 +59,7 @@ const BatchProcessing = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [importMode, setImportMode] = useState<ImportMode | null>(null);
   const [directImportLimit, setDirectImportLimit] = useState<string>("");
+  const [directImportUrl, setDirectImportUrl] = useState<string>("https://gist.githubusercontent.com/diegof-silva/49b4879dddee2e1b75d5216cf5cc7af9/raw");
 
   // Fetch current job status
   const fetchJobStatus = useCallback(async () => {
@@ -129,11 +130,16 @@ const BatchProcessing = () => {
     // Build request body
     const requestBody: Record<string, unknown> = { action: 'start', tenantName };
     
-    // Add limit for direct import
-    if (mode === "direct" && directImportLimit) {
-      const limit = parseInt(directImportLimit, 10);
-      if (!isNaN(limit) && limit > 0) {
-        requestBody.limit = limit;
+    // Add options for direct import
+    if (mode === "direct") {
+      if (directImportLimit) {
+        const limit = parseInt(directImportLimit, 10);
+        if (!isNaN(limit) && limit > 0) {
+          requestBody.limit = limit;
+        }
+      }
+      if (directImportUrl) {
+        requestBody.sourceUrl = directImportUrl;
       }
     }
     
@@ -326,20 +332,36 @@ const BatchProcessing = () => {
                   <li>• Não usa IA - mais rápido</li>
                   <li>• Skills separadas por "|"</li>
                 </ul>
-                
-                <div className="mt-4 space-y-2">
-                  <Label htmlFor="limit" className="text-sm">
-                    Quantidade de colaboradores (deixe vazio para todos)
-                  </Label>
-                  <Input
-                    id="limit"
-                    type="number"
-                    min="1"
-                    placeholder="Ex: 50"
-                    value={directImportLimit}
-                    onChange={(e) => setDirectImportLimit(e.target.value)}
-                    onClick={(e) => e.stopPropagation()}
-                  />
+                <div className="mt-4 space-y-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="sourceUrl" className="text-sm">
+                      URL do JSON de colaboradores
+                    </Label>
+                    <Input
+                      id="sourceUrl"
+                      type="url"
+                      placeholder="https://..."
+                      value={directImportUrl}
+                      onChange={(e) => setDirectImportUrl(e.target.value)}
+                      onClick={(e) => e.stopPropagation()}
+                      className="text-xs"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="limit" className="text-sm">
+                      Limite de colaboradores (vazio = todos)
+                    </Label>
+                    <Input
+                      id="limit"
+                      type="number"
+                      min="1"
+                      placeholder="Ex: 50"
+                      value={directImportLimit}
+                      onChange={(e) => setDirectImportLimit(e.target.value)}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </div>
                 </div>
                 
                 <Button 
