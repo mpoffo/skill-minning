@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.direct-import-batch]
 verify_jwt = false
+
+[functions.talent-mining-ai]
+verify_jwt = false
