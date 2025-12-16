@@ -59,11 +59,17 @@ export function useCheckAccess({
         return;
       }
 
-      const accessGranted = data?.hasAccess === true;
-      console.log(`CheckAccess for ${resource}/${permission}: ${accessGranted}`);
+      // Check both hasAccess field AND raw.authorized to ensure access is granted
+      const accessGranted = data?.hasAccess === true && data?.raw?.authorized === true;
+      console.log(`CheckAccess for ${resource}/${permission}:`, {
+        hasAccess: data?.hasAccess,
+        rawAuthorized: data?.raw?.authorized,
+        accessGranted
+      });
       setHasAccess(accessGranted);
 
       if (!accessGranted) {
+        console.log('Access denied - calling onAccessDenied callback');
         onAccessDenied?.();
       }
     } catch (err) {
