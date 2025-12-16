@@ -1,0 +1,420 @@
+import { useState, useEffect, useMemo } from "react";
+import { PageHeader } from "@/components/PageHeader";
+import { PageFooter } from "@/components/PageFooter";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { StarRating } from "@/components/ui/star-rating";
+import { usePlatform } from "@/contexts/PlatformContext";
+import { supabase } from "@/integrations/supabase/client";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faSearch, faBriefcase, faUsers, faSpinner, faTrash, faTrophy, faMedal, faAward } from "@fortawesome/free-solid-svg-icons";
+import { toast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
+import { useDebounce } from "@/hooks/useDebounce";
+
+interface JobPosition {
+  id: string;
+  jobPositionName: string;
+  jobPositionDescription: string;
+}
+
+interface RequiredSkill {
+  name: string;
+  proficiency: number;
+}
+
+interface RankedUser {
+  userId: string;
+  userName: string;
+  fullName: string;
+  matchScore: number;
+  matchedSkills: {
+    skillName: string;
+    requiredProficiency: number;
+    userProficiency: number;
+  }[];
+}
+
+export default function TalentMining() {
+  const { tenantName, userName, isLoaded, permission, setPermission, isPermissionValid } = usePlatform();
+
+  // Job position search
+  const [jobPositions, setJobPositions] = useState<JobPosition[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedJob, setSelectedJob] = useState<JobPosition | null>(null);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const debouncedSearch = useDebounce(searchTerm, 300);
+
+  // Required skills
+  const [requiredSkills, setRequiredSkills] = useState<RequiredSkill[]>([]);
+  const [isLoadingSkills, setIsLoadingSkills] = useState(false);
+
+  // Talent ranking
+  const [rankedUsers, setRankedUsers] = useState<RankedUser[]>([]);
+  const [isLoadingRanking, setIsLoadingRanking] = useState(false);
+
+  // Load job positions from gist
+  useEffect(() => {
+    const fetchJobPositions = async () => {
+      try {
+        const response = await fetch(
+          "https://gist.githubusercontent.com/mpoffo/408eac5a3e8d97477f004d3ad2631a56/raw/d757362aacdb04e888ac0461545ae3f24c7c0355/cargos.json"
+        );
+        const data = await response.json();
+        setJobPositions(data);
+      } catch (error) {
+        console.error("Error loading job positions:", error);
+        toast({
+          title: "Erro",
+          description: "Não foi possível carregar os cargos",
+          variant: "destructive",
+        });
+      }
+    };
+    fetchJobPositions();
+  }, []);
+
+  // Filter job positions based on search
+  const filteredPositions = useMemo(() => {
+    if (!debouncedSearch) return [];
+    return jobPositions.filter((job) =>
+      job.jobPositionName.toLowerCase().includes(debouncedSearch.toLowerCase())
+    ).slice(0, 10);
+  }, [jobPositions, debouncedSearch]);
+
+  // Select job and identify skills via AI
+  const handleSelectJob = async (job: JobPosition) => {
+    setSelectedJob(job);
+    setSearchTerm(job.jobPositionName);
+    setShowDropdown(false);
+    setRequiredSkills([]);
+    setRankedUsers([]);
+    setIsLoadingSkills(true);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("identify-job-skills", {
+        body: {
+          jobPositionName: job.jobPositionName,
+          jobPositionDescription: job.jobPositionDescription,
+        },
+      });
+
+      if (error) throw error;
+
+      const skills = (data.skills || []).map((name: string) => ({
+        name,
+        proficiency: 3, // Default proficiency
+      }));
+      setRequiredSkills(skills);
+    } catch (error) {
+      console.error("Error identifying skills:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível identificar as habilidades do cargo",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingSkills(false);
+    }
+  };
+
+  // Update skill proficiency
+  const updateSkillProficiency = (skillName: string, proficiency: number) => {
+    setRequiredSkills((prev) =>
+      prev.map((skill) =>
+        skill.name === skillName ? { ...skill, proficiency } : skill
+      )
+    );
+  };
+
+  // Remove skill
+  const removeSkill = (skillName: string) => {
+    setRequiredSkills((prev) => prev.filter((skill) => skill.name !== skillName));
+  };
+
+  // Mine talents
+  const handleMineTalents = async () => {
+    if (!tenantName || requiredSkills.length === 0) return;
+
+    setIsLoadingRanking(true);
+    setRankedUsers([]);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("rank-talents", {
+        body: {
+          tenantName,
+          requiredSkills: requiredSkills.map((s) => ({
+            name: s.name,
+            proficiency: s.proficiency,
+          })),
+        },
+      });
+
+      if (error) throw error;
+
+      setRankedUsers(data.rankedUsers || []);
+
+      if ((data.rankedUsers || []).length === 0) {
+        toast({
+          title: "Nenhum resultado",
+          description: "Não foram encontrados colaboradores com as habilidades desejadas",
+        });
+      }
+    } catch (error) {
+      console.error("Error ranking talents:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível minerar os talentos",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingRanking(false);
+    }
+  };
+
+  const getRankIcon = (index: number) => {
+    switch (index) {
+      case 0:
+        return <FontAwesomeIcon icon={faTrophy} className="text-feedback-warning text-xl" />;
+      case 1:
+        return <FontAwesomeIcon icon={faMedal} className="text-grayscale-40 text-xl" />;
+      case 2:
+        return <FontAwesomeIcon icon={faAward} className="text-primary text-xl" />;
+      default:
+        return <span className="text-label text-muted-foreground font-bold">{index + 1}º</span>;
+    }
+  };
+
+  if (!isLoaded) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="inline-block w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mb-small" />
+          <p className="text-label text-muted-foreground">Carregando...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen flex flex-col bg-background">
+      <PageHeader title="Talent Mining" />
+
+      <main className="flex-1 p-xlarge">
+        <div className="max-w-6xl mx-auto space-y-xlarge">
+          {/* Job Position Search */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-sml">
+                <FontAwesomeIcon icon={faBriefcase} className="text-primary" />
+                Seleção de Cargo
+              </CardTitle>
+              <CardDescription>
+                Busque e selecione um cargo para identificar as habilidades necessárias
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="relative">
+                <div className="relative">
+                  <FontAwesomeIcon
+                    icon={faSearch}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                  />
+                  <Input
+                    placeholder="Digite o nome do cargo..."
+                    value={searchTerm}
+                    onChange={(e) => {
+                      setSearchTerm(e.target.value);
+                      setShowDropdown(true);
+                      if (!e.target.value) {
+                        setSelectedJob(null);
+                        setRequiredSkills([]);
+                        setRankedUsers([]);
+                      }
+                    }}
+                    onFocus={() => setShowDropdown(true)}
+                    className="pl-10"
+                  />
+                </div>
+
+                {/* Autocomplete dropdown */}
+                {showDropdown && filteredPositions.length > 0 && (
+                  <div className="absolute z-20 w-full mt-xsmall bg-card border border-border rounded-big shadow-dp08 max-h-[300px] overflow-auto">
+                    {filteredPositions.map((job) => (
+                      <button
+                        key={job.id}
+                        onClick={() => handleSelectJob(job)}
+                        className="w-full text-left px-default py-sml hover:bg-grayscale-5 transition-colors border-b border-border last:border-b-0"
+                      >
+                        <span className="text-label text-foreground">{job.jobPositionName}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Selected job description */}
+              {selectedJob && (
+                <div className="mt-medium p-default bg-grayscale-5 rounded-big">
+                  <h4 className="text-label font-semibold text-foreground mb-xsmall">
+                    {selectedJob.jobPositionName}
+                  </h4>
+                  <p className="text-small text-muted-foreground">
+                    {selectedJob.jobPositionDescription}
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Required Skills */}
+          {(isLoadingSkills || requiredSkills.length > 0) && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Habilidades Requeridas</CardTitle>
+                <CardDescription>
+                  Ajuste o nível de proficiência esperado para cada habilidade
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isLoadingSkills ? (
+                  <div className="flex items-center justify-center py-xlarge">
+                    <FontAwesomeIcon icon={faSpinner} spin className="text-primary text-2xl mr-sml" />
+                    <span className="text-label text-muted-foreground">
+                      Identificando habilidades via IA...
+                    </span>
+                  </div>
+                ) : (
+                  <div className="space-y-sml">
+                    {requiredSkills.map((skill) => (
+                      <div
+                        key={skill.name}
+                        className="flex items-center justify-between p-default bg-grayscale-5 rounded-big"
+                      >
+                        <span className="text-label text-foreground flex-1">{skill.name}</span>
+                        <div className="flex items-center gap-medium">
+                          <StarRating
+                            value={skill.proficiency}
+                            onChange={(value) => updateSkillProficiency(skill.name, value)}
+                            size="md"
+                            showLabel
+                          />
+                          <button
+                            onClick={() => removeSkill(skill.name)}
+                            className="p-xsmall text-muted-foreground hover:text-destructive transition-colors"
+                          >
+                            <FontAwesomeIcon icon={faTrash} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+
+                    <div className="flex justify-end mt-medium">
+                      <Button
+                        onClick={handleMineTalents}
+                        disabled={isLoadingRanking || requiredSkills.length === 0}
+                        className="gap-sml"
+                      >
+                        {isLoadingRanking ? (
+                          <FontAwesomeIcon icon={faSpinner} spin />
+                        ) : (
+                          <FontAwesomeIcon icon={faUsers} />
+                        )}
+                        Minerar Talentos
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Ranked Users */}
+          {(isLoadingRanking || rankedUsers.length > 0) && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Ranking de Talentos</CardTitle>
+                <CardDescription>
+                  Colaboradores ordenados por aderência às habilidades requeridas
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isLoadingRanking ? (
+                  <div className="flex items-center justify-center py-xlarge">
+                    <FontAwesomeIcon icon={faSpinner} spin className="text-primary text-2xl mr-sml" />
+                    <span className="text-label text-muted-foreground">
+                      Minerando talentos...
+                    </span>
+                  </div>
+                ) : (
+                  <div className="space-y-sml">
+                    {rankedUsers.map((user, index) => (
+                      <div
+                        key={user.userId}
+                        className={cn(
+                          "p-default rounded-big border",
+                          index === 0 && "border-feedback-warning bg-feedback-warning/5",
+                          index === 1 && "border-grayscale-40 bg-grayscale-5",
+                          index === 2 && "border-primary bg-primary/5",
+                          index > 2 && "border-border bg-card"
+                        )}
+                      >
+                        <div className="flex items-start gap-medium">
+                          <div className="flex-shrink-0 w-10 h-10 flex items-center justify-center">
+                            {getRankIcon(index)}
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between mb-xsmall">
+                              <div>
+                                <h4 className="text-label font-semibold text-foreground">
+                                  {user.fullName || user.userName}
+                                </h4>
+                                <span className="text-small text-muted-foreground">
+                                  @{user.userName}
+                                </span>
+                              </div>
+                              <div className="text-right">
+                                <span className="text-h3 font-bold text-primary">
+                                  {Math.round(user.matchScore)}%
+                                </span>
+                                <p className="text-small text-muted-foreground">Aderência</p>
+                              </div>
+                            </div>
+                            <div className="flex flex-wrap gap-xsmall mt-sml">
+                              {user.matchedSkills.map((skill) => (
+                                <div
+                                  key={skill.skillName}
+                                  className={cn(
+                                    "px-sml py-xxsmall rounded-medium text-small",
+                                    skill.userProficiency >= skill.requiredProficiency
+                                      ? "bg-feedback-success/10 text-feedback-success"
+                                      : "bg-feedback-warning/10 text-feedback-warning"
+                                  )}
+                                >
+                                  {skill.skillName}: {skill.userProficiency}/{skill.requiredProficiency}★
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </main>
+
+      <PageFooter
+        userName={userName || ""}
+        resource="res://senior.com.br/hcm/competencymanagement/entities/competencyskillproficiencytable"
+        authorized={isPermissionValid}
+        permission={permission}
+        onPermissionChange={setPermission}
+      />
+    </div>
+  );
+}

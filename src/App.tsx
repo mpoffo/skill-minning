@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { PlatformProvider } from "@/contexts/PlatformContext";
 import MySkills from "./pages/MySkills";
+import TalentMining from "./pages/TalentMining";
 import PlatformEmulator from "./pages/PlatformEmulator";
 import NotFound from "./pages/NotFound";
 
@@ -21,6 +22,11 @@ const App = () => (
           <Route path="/my-skills" element={
             <PlatformProvider>
               <MySkills />
+            </PlatformProvider>
+          } />
+          <Route path="/talent-mining" element={
+            <PlatformProvider>
+              <TalentMining />
             </PlatformProvider>
           } />
           <Route path="*" element={<NotFound />} />
