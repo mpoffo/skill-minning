@@ -129,7 +129,10 @@ export default function PlatformEmulator() {
         return;
       }
 
-      if (data.error || data.allowed === false) {
+      // Check hasAccess field - must be explicitly true
+      const accessGranted = data.hasAccess === true;
+      
+      if (data.error || !accessGranted) {
         setCheckAccessResult({ 
           success: false, 
           message: data.error || 'Acesso negado',
