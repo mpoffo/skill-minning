@@ -527,7 +527,7 @@ export default function TalentMining() {
       <PageFooter
         userName={userName || ""}
         resource="res://senior.com.br/hcm/competencymanagement/entities/competencyskillproficiencytable"
-        authorized={isPermissionValid}
+        authorized={hasAccess === true}
         permission={permission}
         onPermissionChange={setPermission}
       />
