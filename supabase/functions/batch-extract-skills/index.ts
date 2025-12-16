@@ -154,25 +154,18 @@ REGRAS IMPORTANTES:
 6. Idiomas devem ter proficiência baseada no nível declarado (básico=2, intermediário=3, avançado=4, fluente=5)
 7. Máximo de 15 skills por colaborador
 
-Retorne um JSON válido com a estrutura:
-{
-  "results": {
-    "user_name_1": [
-      {"name": "Skill Name", "proficiency": 4, "origin": "responsabilidades"},
-      ...
-    ],
-    "user_name_2": [...]
-  }
-}`;
+FORMATO DE RESPOSTA:
+- Retorne APENAS JSON puro, sem markdown, sem \`\`\`json, sem explicações
+- Comece a resposta diretamente com { e termine com }
 
-    const userPrompt = `Extraia as habilidades técnicas dos seguintes ${collaborators.length} colaboradores:
+Estrutura esperada:
+{"results":{"user_name_1":[{"name":"Skill","proficiency":4,"origin":"responsabilidades"}]}}`;
+
+    const userPrompt = `Extraia as habilidades técnicas dos seguintes ${collaboratorsData.length} colaboradores:
 
 ${JSON.stringify(collaboratorsData, null, 2)}
 
-Lembre-se: 
-- Use o range de proficiência fornecido para cada colaborador baseado no seniority
-- Classifique cada skill pela sua origem nos dados
-- Retorne APENAS o JSON, sem explicações`;
+IMPORTANTE: Responda APENAS com JSON puro. NÃO use markdown. NÃO use \`\`\`json. Comece diretamente com {`;
 
     console.log("Calling Lovable AI for skill extraction...");
 
@@ -223,15 +216,32 @@ Lembre-se:
     // Parse the JSON from the response
     let parsedResult: { results: BatchResult };
     try {
-      // Try to extract JSON from the response (it might be wrapped in markdown)
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      // Clean the content - remove markdown code blocks if present
+      let cleanContent = content.trim();
+      
+      // Remove markdown code blocks
+      if (cleanContent.startsWith('```')) {
+        // Remove opening ```json or ``` 
+        cleanContent = cleanContent.replace(/^```(?:json)?\s*\n?/, '');
+        // Remove closing ```
+        cleanContent = cleanContent.replace(/\n?```\s*$/, '');
+      }
+      
+      // Try to extract JSON from the cleaned content
+      const jsonMatch = cleanContent.match(/^\s*(\{[\s\S]*\})\s*$/);
       if (jsonMatch) {
-        parsedResult = JSON.parse(jsonMatch[0]);
+        parsedResult = JSON.parse(jsonMatch[1]);
       } else {
-        throw new Error("No JSON found in response");
+        // Fallback: try to find any JSON object in the response
+        const fallbackMatch = cleanContent.match(/\{[\s\S]*\}/);
+        if (fallbackMatch) {
+          parsedResult = JSON.parse(fallbackMatch[0]);
+        } else {
+          throw new Error("No JSON found in response");
+        }
       }
     } catch (parseError) {
-      console.error("Failed to parse AI response:", content);
+      console.error("Failed to parse AI response:", content.substring(0, 500) + "...");
       throw new Error("Failed to parse AI response as JSON");
     }
 
