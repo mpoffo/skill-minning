@@ -6,13 +6,18 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { usePlatform } from "@/contexts/PlatformContext";
-import { Play, Pause, Square, CheckCircle, XCircle, Clock, Users, Zap, Database } from "lucide-react";
+import { useCheckAccess } from "@/hooks/useCheckAccess";
+import { AccessDenied } from "@/components/AccessDenied";
+import { Play, Pause, Square, CheckCircle, XCircle, Clock, Users, Zap, Database, Loader2 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { PageFooter } from "@/components/PageFooter";
 
 const COLLABORATORS_URL = "https://gist.githubusercontent.com/mpoffo/76cb8872843cfd03ff3b44c29ba1f485/raw/69460f00cfa5177ab5ddddcb067e807885b54808/gistfile1.txt";
 const BATCH_SIZE = 25;
 const DELAY_BETWEEN_BATCHES = 1500; // 1.5 seconds
+const BATCH_PROCESSING_STATE_KEY = "batch-processing-state";
+const BATCH_PROCESSING_RESOURCE = "res://senior.com.br/analytics/hcm/myAnalytics";
+const BATCH_PROCESSING_PERMISSION = "Visualizar";
 
 interface Collaborator {
   employee_id: string;
@@ -37,7 +42,7 @@ interface ExtractedSkill {
 }
 
 interface LogEntry {
-  timestamp: Date;
+  timestamp: string;
   message: string;
   type: "info" | "success" | "error" | "warning";
 }
@@ -52,10 +57,49 @@ interface ProcessingStats {
 
 type ProcessingStatus = "idle" | "loading" | "running" | "paused" | "completed" | "error";
 
+interface BatchProcessingState {
+  status: ProcessingStatus;
+  collaborators: Collaborator[];
+  currentBatch: number;
+  totalBatches: number;
+  stats: ProcessingStats;
+  logs: LogEntry[];
+  startTime: string | null;
+  batchTimes: number[];
+  estimatedTimeRemaining: string;
+  processedUserNames: string[];
+}
+
+const getInitialState = (): BatchProcessingState => ({
+  status: "idle",
+  collaborators: [],
+  currentBatch: 0,
+  totalBatches: 0,
+  stats: {
+    collaboratorsProcessed: 0,
+    skillsExtracted: 0,
+    skillsCreated: 0,
+    usersCreated: 0,
+    errors: 0,
+  },
+  logs: [],
+  startTime: null,
+  batchTimes: [],
+  estimatedTimeRemaining: "",
+  processedUserNames: [],
+});
+
 const BatchProcessing = () => {
-  const { token } = usePlatform();
+  const { token, userName } = usePlatform();
   const tenantName = "senior.com.br"; // Default tenant for batch processing
 
+  // Permission check
+  const { hasAccess, isChecking } = useCheckAccess({
+    resource: BATCH_PROCESSING_RESOURCE,
+    permission: BATCH_PROCESSING_PERMISSION,
+  });
+
+  // State with persistence
   const [status, setStatus] = useState<ProcessingStatus>("idle");
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
   const [currentBatch, setCurrentBatch] = useState(0);
@@ -71,13 +115,67 @@ const BatchProcessing = () => {
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [batchTimes, setBatchTimes] = useState<number[]>([]);
   const [estimatedTimeRemaining, setEstimatedTimeRemaining] = useState<string>("");
+  const [processedUserNames, setProcessedUserNames] = useState<string[]>([]);
 
   const isPausedRef = useRef(false);
   const isCancelledRef = useRef(false);
+  const isProcessingRef = useRef(false);
+
+  // Save state to sessionStorage
+  const saveState = useCallback(() => {
+    const state: BatchProcessingState = {
+      status,
+      collaborators,
+      currentBatch,
+      totalBatches,
+      stats,
+      logs,
+      startTime: startTime?.toISOString() || null,
+      batchTimes,
+      estimatedTimeRemaining,
+      processedUserNames,
+    };
+    sessionStorage.setItem(BATCH_PROCESSING_STATE_KEY, JSON.stringify(state));
+  }, [status, collaborators, currentBatch, totalBatches, stats, logs, startTime, batchTimes, estimatedTimeRemaining, processedUserNames]);
+
+  // Restore state from sessionStorage
+  useEffect(() => {
+    const savedState = sessionStorage.getItem(BATCH_PROCESSING_STATE_KEY);
+    if (savedState) {
+      try {
+        const state: BatchProcessingState = JSON.parse(savedState);
+        setStatus(state.status);
+        setCollaborators(state.collaborators);
+        setCurrentBatch(state.currentBatch);
+        setTotalBatches(state.totalBatches);
+        setStats(state.stats);
+        setLogs(state.logs.map(log => ({ ...log, timestamp: log.timestamp })));
+        setStartTime(state.startTime ? new Date(state.startTime) : null);
+        setBatchTimes(state.batchTimes);
+        setEstimatedTimeRemaining(state.estimatedTimeRemaining);
+        setProcessedUserNames(state.processedUserNames || []);
+
+        // If was running, mark as paused to allow resume
+        if (state.status === "running") {
+          setStatus("paused");
+          isPausedRef.current = true;
+        }
+      } catch (e) {
+        console.error("Error restoring batch processing state:", e);
+      }
+    }
+  }, []);
+
+  // Auto-save state when it changes
+  useEffect(() => {
+    if (status !== "idle" || logs.length > 0) {
+      saveState();
+    }
+  }, [status, currentBatch, stats, logs, saveState]);
 
   const addLog = useCallback((message: string, type: LogEntry["type"] = "info") => {
     setLogs((prev) => [
-      { timestamp: new Date(), message, type },
+      { timestamp: new Date().toISOString(), message, type },
       ...prev.slice(0, 99), // Keep last 100 logs
     ]);
   }, []);
@@ -212,11 +310,17 @@ const BatchProcessing = () => {
   };
 
   const startProcessing = async () => {
+    if (isProcessingRef.current) return;
+    isProcessingRef.current = true;
+
     let data = collaborators;
     
     if (data.length === 0) {
       data = await loadCollaborators();
-      if (data.length === 0) return;
+      if (data.length === 0) {
+        isProcessingRef.current = false;
+        return;
+      }
     }
 
     setStatus("running");
@@ -231,6 +335,7 @@ const BatchProcessing = () => {
       usersCreated: 0,
       errors: 0,
     });
+    setProcessedUserNames([]);
 
     addLog("Iniciando processamento em lote...", "info");
 
@@ -243,6 +348,7 @@ const BatchProcessing = () => {
       if (isCancelledRef.current) {
         addLog("Processamento cancelado pelo usuário", "warning");
         setStatus("idle");
+        isProcessingRef.current = false;
         return;
       }
 
@@ -250,6 +356,7 @@ const BatchProcessing = () => {
         await new Promise((resolve) => setTimeout(resolve, 100));
         if (isCancelledRef.current) {
           setStatus("idle");
+          isProcessingRef.current = false;
           return;
         }
       }
@@ -265,6 +372,10 @@ const BatchProcessing = () => {
       if (result) {
         const dbResults = await saveResultsToDatabase(result.results, batch);
         
+        // Track processed users
+        const batchUserNames = batch.map(c => c.user_name);
+        setProcessedUserNames(prev => [...prev, ...batchUserNames]);
+
         setStats((prev) => ({
           collaboratorsProcessed: prev.collaboratorsProcessed + batch.length,
           skillsExtracted: prev.skillsExtracted + dbResults.totalSkillsExtracted,
@@ -302,6 +413,10 @@ const BatchProcessing = () => {
     setStatus("completed");
     setCurrentBatch(batches.length);
     addLog("Processamento concluído!", "success");
+    isProcessingRef.current = false;
+
+    // Clear saved state on completion
+    sessionStorage.removeItem(BATCH_PROCESSING_STATE_KEY);
   };
 
   const pauseProcessing = () => {
@@ -314,6 +429,11 @@ const BatchProcessing = () => {
     isPausedRef.current = false;
     setStatus("running");
     addLog("Processamento retomado", "info");
+    
+    // If not already processing, restart from current batch
+    if (!isProcessingRef.current) {
+      startProcessing();
+    }
   };
 
   const cancelProcessing = () => {
@@ -322,6 +442,8 @@ const BatchProcessing = () => {
     setStatus("idle");
     setCurrentBatch(0);
     addLog("Processamento cancelado", "warning");
+    isProcessingRef.current = false;
+    sessionStorage.removeItem(BATCH_PROCESSING_STATE_KEY);
   };
 
   const resetProcessing = () => {
@@ -337,6 +459,9 @@ const BatchProcessing = () => {
     setLogs([]);
     setEstimatedTimeRemaining("");
     setBatchTimes([]);
+    setProcessedUserNames([]);
+    isProcessingRef.current = false;
+    sessionStorage.removeItem(BATCH_PROCESSING_STATE_KEY);
   };
 
   const progressPercent = totalBatches > 0 ? ((currentBatch + (status === "completed" ? 0 : 0)) / totalBatches) * 100 : 0;
@@ -353,6 +478,28 @@ const BatchProcessing = () => {
         return <Zap className="h-4 w-4 text-blue-500" />;
     }
   };
+
+  // Show loading while checking permissions
+  if (isChecking) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-small" />
+          <p className="text-label text-muted-foreground">Verificando permissões...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show access denied if no permission
+  if (hasAccess === false) {
+    return (
+      <AccessDenied 
+        resource={BATCH_PROCESSING_RESOURCE} 
+        permission={BATCH_PROCESSING_PERMISSION} 
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -372,6 +519,14 @@ const BatchProcessing = () => {
               Processa o arquivo de colaboradores e extrai habilidades usando IA, salvando no banco de dados.
               O processamento é feito em lotes de {BATCH_SIZE} colaboradores para otimizar performance e custo.
             </p>
+
+            {status === "paused" && currentBatch > 0 && (
+              <div className="p-3 bg-feedback-warning/10 border border-feedback-warning/20 rounded-big">
+                <p className="text-small text-foreground">
+                  Processamento pausado no lote {currentBatch + 1}/{totalBatches}. Clique em "Continuar" para retomar de onde parou.
+                </p>
+              </div>
+            )}
 
             <div className="flex gap-2">
               {status === "idle" && (
@@ -524,7 +679,7 @@ const BatchProcessing = () => {
                     <div key={index} className="flex items-start gap-2 text-sm">
                       {getLogIcon(log.type)}
                       <span className="text-muted-foreground">
-                        {log.timestamp.toLocaleTimeString()}
+                        {new Date(log.timestamp).toLocaleTimeString()}
                       </span>
                       <span>{log.message}</span>
                     </div>
@@ -537,9 +692,9 @@ const BatchProcessing = () => {
       </main>
 
       <PageFooter 
-        userName="admin" 
-        resource="batch-processing" 
-        authorized={true} 
+        userName={userName || "admin"} 
+        resource={BATCH_PROCESSING_RESOURCE} 
+        authorized={hasAccess === true} 
       />
     </div>
   );
