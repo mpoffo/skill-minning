@@ -146,7 +146,7 @@ export function RankedUserCard({
               <div className="mb-medium">
                 <div className="flex items-center gap-xsmall mb-sml">
                   <FontAwesomeIcon icon={faCode} className="text-muted-foreground" />
-                  <span className="text-label font-semibold">Hard Skills</span>
+                  <span className="text-label font-semibold">Skills</span>
                 </div>
                 <div className="flex flex-wrap gap-xsmall">
                   {(details?.hardSkills || matchedSkills.map(s => s.skillName)).map((skill, idx) => (
