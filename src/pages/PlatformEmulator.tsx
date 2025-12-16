@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { User, Search, Database } from "lucide-react";
+import { User, Search, Database, ShieldCheck } from "lucide-react";
 
 const CACHE_KEY = "platform-emulator-cache";
 
@@ -19,6 +19,7 @@ interface CachedData {
   email: string;
   tenantName: string;
   accessToken: string;
+  checkAccessResource: string;
 }
 
 const defaultToken = {
@@ -60,6 +61,11 @@ export default function PlatformEmulator() {
   const [tenantName, setTenantName] = useState(defaultToken.tenantName);
   const [accessToken, setAccessToken] = useState(defaultToken.access_token);
   const servicesUrl = environments[selectedEnv].url;
+  
+  // CheckAccess test state
+  const [checkAccessResource, setCheckAccessResource] = useState("res://senior.com.br/analytics/hcm/myAnalytics");
+  const [isCheckingAccess, setIsCheckingAccess] = useState(false);
+  const [checkAccessResult, setCheckAccessResult] = useState<{ success: boolean; message: string; curl?: string } | null>(null);
 
   // Load cached data on mount
   useEffect(() => {
@@ -75,6 +81,7 @@ export default function PlatformEmulator() {
         setEmail(data.email || "");
         setTenantName(data.tenantName || "");
         setAccessToken(data.accessToken || "");
+        setCheckAccessResource(data.checkAccessResource || "res://senior.com.br/analytics/hcm/myAnalytics");
       } catch (e) {
         console.error("Error loading cached data:", e);
       }
@@ -92,9 +99,52 @@ export default function PlatformEmulator() {
       email,
       tenantName,
       accessToken,
+      checkAccessResource,
     };
     localStorage.setItem(CACHE_KEY, JSON.stringify(data));
-  }, [loginUsername, loginPassword, selectedEnv, username, fullName, email, tenantName, accessToken]);
+  }, [loginUsername, loginPassword, selectedEnv, username, fullName, email, tenantName, accessToken, checkAccessResource]);
+
+  const handleCheckAccess = async () => {
+    if (!accessToken) {
+      toast.error("Token de acesso não informado");
+      return;
+    }
+
+    setIsCheckingAccess(true);
+    setCheckAccessResult(null);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('platform-gateway', {
+        body: {
+          action: 'checkAccess',
+          servicesUrl,
+          accessToken,
+          resource: checkAccessResource,
+          permission: 'Visualizar',
+        },
+      });
+
+      if (error) {
+        setCheckAccessResult({ success: false, message: error.message });
+        return;
+      }
+
+      if (data.error || data.allowed === false) {
+        setCheckAccessResult({ 
+          success: false, 
+          message: data.error || 'Acesso negado',
+          curl: data.curlCommand,
+        });
+      } else {
+        setCheckAccessResult({ success: true, message: 'Acesso permitido!' });
+        toast.success("CheckAccess OK!");
+      }
+    } catch (err) {
+      setCheckAccessResult({ success: false, message: err instanceof Error ? err.message : 'Erro desconhecido' });
+    } finally {
+      setIsCheckingAccess(false);
+    }
+  };
 
   const handleLogin = async () => {
     if (!loginUsername || !loginPassword) {
@@ -334,6 +384,46 @@ export default function PlatformEmulator() {
                   disabled
                   className="bg-muted"
                 />
+              </div>
+              
+              {/* CheckAccess Test Section */}
+              <div className="md:col-span-2 pt-default border-t border-border">
+                <p className="text-label-bold text-foreground mb-sml">Testar CheckAccess</p>
+                <div className="flex gap-sml items-end">
+                  <div className="flex-1">
+                    <label className="text-small text-muted-foreground block mb-xsmall">
+                      Resource
+                    </label>
+                    <Input 
+                      value={checkAccessResource}
+                      onChange={(e) => setCheckAccessResource(e.target.value)}
+                      placeholder="res://senior.com.br/..."
+                    />
+                  </div>
+                  <Button 
+                    onClick={handleCheckAccess}
+                    variant="outline"
+                    disabled={isCheckingAccess || !accessToken}
+                    className="gap-sml"
+                  >
+                    <ShieldCheck className="h-4 w-4" />
+                    {isCheckingAccess ? 'Verificando...' : 'Testar'}
+                  </Button>
+                </div>
+                
+                {checkAccessResult && (
+                  <div className={`mt-sml p-sml rounded text-small ${checkAccessResult.success ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'}`}>
+                    <p className="font-medium">{checkAccessResult.success ? '✓ ' : '✗ '}{checkAccessResult.message}</p>
+                    {checkAccessResult.curl && (
+                      <div className="mt-sml">
+                        <p className="text-muted-foreground mb-xsmall">CURL para debug:</p>
+                        <code className="block bg-background p-sml rounded text-xs break-all">
+                          {checkAccessResult.curl}
+                        </code>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
               
               <div className="md:col-span-2 pt-default border-t border-border space-y-sml">
