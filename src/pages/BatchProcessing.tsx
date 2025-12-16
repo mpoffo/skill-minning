@@ -46,8 +46,8 @@ interface BatchJob {
 }
 
 const BatchProcessing = () => {
-  const { userName } = usePlatform();
-  const tenantName = "senior.com.br";
+  const { userName, tenantName: platformTenantName } = usePlatform();
+  const tenantName = platformTenantName || "senior.com.br";
 
   // Permission check
   const { hasAccess, isChecking } = useCheckAccess({
