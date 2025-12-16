@@ -197,24 +197,13 @@ async function processBatchDirectly(
     
     const existingUserNames = new Set((existingUsers || []).map((u: any) => u.user_name));
 
-    // 2. Get all existing skills for this tenant (single query)
-    const { data: existingSkills } = await supabase
-      .from("skills")
-      .select("id, name")
-      .eq("tenant_name", tenantName);
-    
+    // 2. Initialize skill name to ID map (will be populated after upsert)
+    // We don't preload all skills because there could be >1000 (Supabase default limit)
     const skillNameToId = new Map<string, string>();
-    (existingSkills || []).forEach((s: any) => skillNameToId.set(s.name, s.id));
 
-    // 3. Get all existing user_skills for this tenant (single query)
-    const { data: existingUserSkills } = await supabase
-      .from("user_skills")
-      .select("user_id, skill_id")
-      .eq("tenant_name", tenantName);
-    
-    const existingUserSkillKeys = new Set(
-      (existingUserSkills || []).map((us: any) => `${us.user_id}|${us.skill_id}`)
-    );
+    // 3. Initialize empty set for existing user_skills keys
+    // We'll use upsert with ignoreDuplicates instead of checking existence
+    const existingUserSkillKeys = new Set<string>();
 
     // 4. Prepare batch data
     const usersToInsert: any[] = [];
@@ -306,13 +295,19 @@ async function processBatchDirectly(
         skillsCreated = uniqueSkillsToInsert.length;
       }
       
-      // Refetch all skills to get IDs (including newly created ones)
-      const { data: allSkills } = await supabase
-        .from("skills")
-        .select("id, name")
-        .eq("tenant_name", tenantName);
-      
-      (allSkills || []).forEach((s: any) => skillNameToId.set(s.name, s.id));
+      // Refetch ONLY the skills we need (not all skills which could exceed 1000 row limit)
+      // Query in chunks of 100 skill names to avoid query size limits
+      const chunkSize = 100;
+      for (let i = 0; i < uniqueSkillsToInsert.length; i += chunkSize) {
+        const chunk = uniqueSkillsToInsert.slice(i, i + chunkSize);
+        const { data: chunkSkills } = await supabase
+          .from("skills")
+          .select("id, name")
+          .eq("tenant_name", tenantName)
+          .in("name", chunk);
+        
+        (chunkSkills || []).forEach((s: any) => skillNameToId.set(s.name, s.id));
+      }
     }
 
     // 7. Batch insert user_skills (deduplicated)
