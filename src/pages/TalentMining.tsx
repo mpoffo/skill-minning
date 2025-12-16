@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { RequiredSkillCard } from "@/components/RequiredSkillCard";
 import { RankedUserCard } from "@/components/RankedUserCard";
 import { AIRankedCandidateCard } from "@/components/AIRankedCandidateCard";
+import { AISearchResults } from "@/components/AISearchResults";
 import { AIInsightsCard } from "@/components/AIInsightsCard";
 import { usePlatform } from "@/contexts/PlatformContext";
 import { useCheckAccess } from "@/hooks/useCheckAccess";
@@ -695,24 +696,9 @@ export default function TalentMining() {
                 </Card>
               )}
 
-              {/* AI Search Results - Top 3 Candidates */}
+              {/* AI Search Results - Top Candidates */}
               {aiSearchResult && aiSearchResult.top_3 && aiSearchResult.top_3.length > 0 && (
-                <Card>
-                  <CardHeader>
-                    <div className="flex items-center gap-sml">
-                      <FontAwesomeIcon icon={faUserGroup} className="text-primary" />
-                      <CardTitle>Top 3 Candidatos</CardTitle>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-sml">
-                    {aiSearchResult.top_3.map((candidate) => (
-                      <AIRankedCandidateCard
-                        key={candidate.rank}
-                        candidate={candidate}
-                      />
-                    ))}
-                  </CardContent>
-                </Card>
+                <AISearchResults candidates={aiSearchResult.top_3} />
               )}
 
               {/* AI Insights */}
