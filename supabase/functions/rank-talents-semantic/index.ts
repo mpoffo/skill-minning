@@ -226,20 +226,27 @@ REGRAS:
       const matchedSkills: UserSkillMatch[] = [];
       let totalWeightedScore = 0;
       let maxPossibleScore = 0;
+      
+      // Track which user skills have been used to avoid counting the same skill multiple times
+      const usedUserSkillIds = new Set<string>();
 
       for (const required of requiredSkills as RequiredSkill[]) {
         const requiredNameLower = required.name.toLowerCase();
         const matchingSkills = similarityMatrix[requiredNameLower] || [];
         
-        // Find the best matching skill the user has
-        let bestMatch: { skillName: string; userProficiency: number; similarity: number } | null = null;
+        // Find the best matching skill the user has (that hasn't been used yet)
+        let bestMatch: { skillId: string; skillName: string; userProficiency: number; similarity: number } | null = null;
         
         for (const match of matchingSkills) {
+          // Skip if this user skill was already matched to another required skill
+          if (usedUserSkillIds.has(match.skillId)) continue;
+          
           const userProficiency = userSkillData[match.skillId];
           if (userProficiency !== undefined) {
             if (!bestMatch || 
                 (match.similarity * userProficiency) > (bestMatch.similarity * bestMatch.userProficiency)) {
               bestMatch = {
+                skillId: match.skillId,
                 skillName: match.skillName,
                 userProficiency,
                 similarity: match.similarity,
@@ -253,8 +260,11 @@ REGRAS:
         maxPossibleScore += weight * 5; // Max 5 stars
 
         if (bestMatch) {
+          // Mark this user skill as used
+          usedUserSkillIds.add(bestMatch.skillId);
+          
           matchedSkills.push({
-            skillName: bestMatch.skillName,
+            skillName: required.name, // Show the REQUIRED skill name, not the user's
             requiredProficiency: required.proficiency,
             userProficiency: bestMatch.userProficiency,
             similarity: bestMatch.similarity,
