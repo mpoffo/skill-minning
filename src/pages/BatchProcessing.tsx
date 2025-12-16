@@ -1,20 +1,22 @@
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { usePlatform } from "@/contexts/PlatformContext";
 import { useCheckAccess } from "@/hooks/useCheckAccess";
 import { AccessDenied } from "@/components/AccessDenied";
-import { Play, Pause, Square, CheckCircle, XCircle, Clock, Users, Zap, Database, Loader2, RefreshCw } from "lucide-react";
+import { Play, Pause, Square, CheckCircle, XCircle, Clock, Users, Zap, Database, Loader2, RefreshCw, Sparkles, FileJson } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { PageFooter } from "@/components/PageFooter";
 import { toast } from "sonner";
 
 const BATCH_PROCESSING_RESOURCE = "res://senior.com.br/analytics/hcm/myAnalytics";
 const BATCH_PROCESSING_PERMISSION = "Visualizar";
+
+type ImportMode = "ai" | "direct";
 
 interface LogEntry {
   timestamp: string;
@@ -53,15 +55,32 @@ const BatchProcessing = () => {
 
   const [job, setJob] = useState<BatchJob | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [importMode, setImportMode] = useState<ImportMode | null>(null);
 
   // Fetch current job status
   const fetchJobStatus = useCallback(async () => {
     try {
-      const { data, error } = await supabase.functions.invoke('background-batch-processing', {
-        body: { action: 'status', tenantName },
-      });
-      if (error) throw error;
-      setJob(data.job || null);
+      // Try both functions to get the most recent job
+      const [aiResult, directResult] = await Promise.all([
+        supabase.functions.invoke('background-batch-processing', {
+          body: { action: 'status', tenantName },
+        }),
+        supabase.functions.invoke('direct-import-batch', {
+          body: { action: 'status', tenantName },
+        }),
+      ]);
+
+      const aiJob = aiResult.data?.job;
+      const directJob = directResult.data?.job;
+
+      // Get the most recent job
+      if (aiJob && directJob) {
+        const aiDate = new Date(aiJob.created_at).getTime();
+        const directDate = new Date(directJob.created_at).getTime();
+        setJob(aiDate > directDate ? aiJob : directJob);
+      } else {
+        setJob(aiJob || directJob || null);
+      }
     } catch (error) {
       console.error('Error fetching job status:', error);
     }
@@ -98,10 +117,14 @@ const BatchProcessing = () => {
     };
   }, [tenantName]);
 
-  const startProcessing = async () => {
+  const startProcessing = async (mode: ImportMode) => {
     setIsLoading(true);
+    setImportMode(mode);
+    
+    const functionName = mode === "ai" ? "background-batch-processing" : "direct-import-batch";
+    
     try {
-      const { data, error } = await supabase.functions.invoke('background-batch-processing', {
+      const { data, error } = await supabase.functions.invoke(functionName, {
         body: { action: 'start', tenantName },
       });
       
@@ -115,7 +138,11 @@ const BatchProcessing = () => {
         return;
       }
       
-      toast.success("Processamento iniciado em background!");
+      toast.success(
+        mode === "ai" 
+          ? "Processamento com IA iniciado em background!" 
+          : "Importação direta iniciada em background!"
+      );
       await fetchJobStatus();
     } catch (error) {
       console.error('Error starting processing:', error);
@@ -127,8 +154,9 @@ const BatchProcessing = () => {
 
   const pauseProcessing = async () => {
     if (!job) return;
+    const functionName = importMode === "ai" ? "background-batch-processing" : "direct-import-batch";
     try {
-      await supabase.functions.invoke('background-batch-processing', {
+      await supabase.functions.invoke(functionName, {
         body: { action: 'pause', jobId: job.id },
       });
       toast.info("Processamento pausado");
@@ -140,8 +168,9 @@ const BatchProcessing = () => {
 
   const resumeProcessing = async () => {
     if (!job) return;
+    const functionName = importMode === "ai" ? "background-batch-processing" : "direct-import-batch";
     try {
-      await supabase.functions.invoke('background-batch-processing', {
+      await supabase.functions.invoke(functionName, {
         body: { action: 'resume', jobId: job.id },
       });
       toast.success("Processamento retomado");
@@ -153,8 +182,9 @@ const BatchProcessing = () => {
 
   const cancelProcessing = async () => {
     if (!job) return;
+    const functionName = importMode === "ai" ? "background-batch-processing" : "direct-import-batch";
     try {
-      await supabase.functions.invoke('background-batch-processing', {
+      await supabase.functions.invoke(functionName, {
         body: { action: 'cancel', jobId: job.id },
       });
       toast.warning("Processamento cancelado");
@@ -166,6 +196,7 @@ const BatchProcessing = () => {
 
   const resetView = () => {
     setJob(null);
+    setImportMode(null);
   };
 
   const progressPercent = job && job.total_batches > 0 
@@ -234,75 +265,161 @@ const BatchProcessing = () => {
       <PageHeader title="Processamento em Lote" />
 
       <main className="flex-1 p-6 max-w-6xl mx-auto w-full space-y-6">
-        {/* Control Panel */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <Database className="h-5 w-5" />
-                Extração de Habilidades em Lote
-              </CardTitle>
-              {getStatusBadge()}
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-muted-foreground">
-              O processamento é executado <strong>em segundo plano no servidor</strong>. 
-              Você pode navegar para outras páginas ou até fechar o navegador - o processamento continuará.
-            </p>
+        {/* Mode Selection - Show only when can start */}
+        {canStart && !isLoading && (
+          <div className="grid md:grid-cols-2 gap-4">
+            <Card className="border-2 hover:border-primary/50 transition-colors cursor-pointer" onClick={() => startProcessing("ai")}>
+              <CardHeader>
+                <div className="flex items-center gap-3">
+                  <div className="p-3 rounded-lg bg-purple-500/10">
+                    <Sparkles className="h-6 w-6 text-purple-500" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg">Extração com IA</CardTitle>
+                    <CardDescription>Usa Gemini AI para extrair skills</CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <ul className="text-sm text-muted-foreground space-y-1">
+                  <li>• Extrai skills de responsabilidades, certificações, etc.</li>
+                  <li>• Classifica proficiência por senioridade</li>
+                  <li>• ~774 colaboradores em ~31 lotes</li>
+                  <li>• Tempo estimado: 3-5 minutos</li>
+                </ul>
+                <Button className="w-full mt-4 gap-2" variant="outline">
+                  <Sparkles className="h-4 w-4" />
+                  Iniciar Extração com IA
+                </Button>
+              </CardContent>
+            </Card>
 
-            {isPaused && job && (
-              <div className="p-3 bg-feedback-warning/10 border border-feedback-warning/20 rounded-big">
-                <p className="text-small text-foreground">
-                  Processamento pausado no lote {job.current_batch + 1}/{job.total_batches}. 
-                  Clique em "Continuar" para retomar.
-                </p>
+            <Card className="border-2 hover:border-primary/50 transition-colors cursor-pointer" onClick={() => startProcessing("direct")}>
+              <CardHeader>
+                <div className="flex items-center gap-3">
+                  <div className="p-3 rounded-lg bg-green-500/10">
+                    <FileJson className="h-6 w-6 text-green-500" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg">Importação Direta</CardTitle>
+                    <CardDescription>JSON com hard_skills preenchido</CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <ul className="text-sm text-muted-foreground space-y-1">
+                  <li>• Importa skills já definidas no campo hard_skills</li>
+                  <li>• Não usa IA - mais rápido</li>
+                  <li>• Skills separadas por "|"</li>
+                  <li>• Tempo estimado: ~1 minuto</li>
+                </ul>
+                <Button className="w-full mt-4 gap-2" variant="outline">
+                  <FileJson className="h-4 w-4" />
+                  Iniciar Importação Direta
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Loading state */}
+        {isLoading && (
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
+                <p className="text-muted-foreground">Iniciando processamento...</p>
               </div>
-            )}
+            </CardContent>
+          </Card>
+        )}
 
-            <div className="flex gap-2 flex-wrap">
-              {canStart && (
-                <Button onClick={startProcessing} disabled={isLoading} className="gap-2">
-                  {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-                  Iniciar Processamento
+        {/* Control Panel - Show when processing */}
+        {job && !canStart && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Database className="h-5 w-5" />
+                  {importMode === "direct" ? "Importação Direta" : "Extração com IA"}
+                </CardTitle>
+                {getStatusBadge()}
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-muted-foreground">
+                O processamento é executado <strong>em segundo plano no servidor</strong>. 
+                Você pode navegar para outras páginas ou até fechar o navegador.
+              </p>
+
+              {isPaused && job && (
+                <div className="p-3 bg-feedback-warning/10 border border-feedback-warning/20 rounded-big">
+                  <p className="text-small text-foreground">
+                    Processamento pausado no lote {job.current_batch + 1}/{job.total_batches}. 
+                    Clique em "Continuar" para retomar.
+                  </p>
+                </div>
+              )}
+
+              <div className="flex gap-2 flex-wrap">
+                {isRunning && (
+                  <>
+                    <Button onClick={pauseProcessing} variant="outline" className="gap-2">
+                      <Pause className="h-4 w-4" />
+                      Pausar
+                    </Button>
+                    <Button onClick={cancelProcessing} variant="destructive" className="gap-2">
+                      <Square className="h-4 w-4" />
+                      Cancelar
+                    </Button>
+                  </>
+                )}
+                {isPaused && (
+                  <>
+                    <Button onClick={resumeProcessing} className="gap-2">
+                      <Play className="h-4 w-4" />
+                      Continuar
+                    </Button>
+                    <Button onClick={cancelProcessing} variant="destructive" className="gap-2">
+                      <Square className="h-4 w-4" />
+                      Cancelar
+                    </Button>
+                  </>
+                )}
+                <Button onClick={fetchJobStatus} variant="ghost" className="gap-2">
+                  <RefreshCw className="h-4 w-4" />
+                  Atualizar
                 </Button>
-              )}
-              {isRunning && (
-                <>
-                  <Button onClick={pauseProcessing} variant="outline" className="gap-2">
-                    <Pause className="h-4 w-4" />
-                    Pausar
-                  </Button>
-                  <Button onClick={cancelProcessing} variant="destructive" className="gap-2">
-                    <Square className="h-4 w-4" />
-                    Cancelar
-                  </Button>
-                </>
-              )}
-              {isPaused && (
-                <>
-                  <Button onClick={resumeProcessing} className="gap-2">
-                    <Play className="h-4 w-4" />
-                    Continuar
-                  </Button>
-                  <Button onClick={cancelProcessing} variant="destructive" className="gap-2">
-                    <Square className="h-4 w-4" />
-                    Cancelar
-                  </Button>
-                </>
-              )}
-              <Button onClick={fetchJobStatus} variant="ghost" className="gap-2">
-                <RefreshCw className="h-4 w-4" />
-                Atualizar
-              </Button>
-              {job && ['completed', 'cancelled', 'error'].includes(job.status) && (
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Completed/Error state */}
+        {job && ['completed', 'cancelled', 'error'].includes(job.status) && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Database className="h-5 w-5" />
+                  Último Processamento
+                </CardTitle>
+                {getStatusBadge()}
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex gap-2">
                 <Button onClick={resetView} variant="outline" className="gap-2">
-                  Limpar
+                  Iniciar Novo Processamento
                 </Button>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+                <Button onClick={fetchJobStatus} variant="ghost" className="gap-2">
+                  <RefreshCw className="h-4 w-4" />
+                  Atualizar
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Progress Section */}
         {job && (
@@ -423,13 +540,14 @@ const BatchProcessing = () => {
           </Card>
         )}
 
-        {!job && (
+        {/* Empty state - only show when no job and not loading */}
+        {!job && !isLoading && !canStart && (
           <Card>
             <CardContent className="pt-6">
               <div className="text-center py-8 text-muted-foreground">
                 <Database className="h-12 w-12 mx-auto mb-4 opacity-50" />
                 <p>Nenhum processamento em andamento.</p>
-                <p className="text-sm">Clique em "Iniciar Processamento" para começar.</p>
+                <p className="text-sm">Escolha uma opção acima para começar.</p>
               </div>
             </CardContent>
           </Card>
