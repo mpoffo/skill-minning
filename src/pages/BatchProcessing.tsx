@@ -10,7 +10,7 @@ import { Play, Pause, Square, CheckCircle, XCircle, Clock, Users, Zap, Database 
 import { PageHeader } from "@/components/PageHeader";
 import { PageFooter } from "@/components/PageFooter";
 
-const COLLABORATORS_URL = "https://gist.githubusercontent.com/mpoffo/ae38825dbb54db443ac2b66a9d7a8a25/raw/d5d1115b2a027b4e20a1a5a789c40061711ba8e6/colaboradores.json";
+const COLLABORATORS_URL = "https://gist.githubusercontent.com/mpoffo/44443a4a18d4705a7f219ca7baa0bc5a/raw/afb26ad8fcd9e85654d29151358f9f5c75fe1954/colaboradores.json";
 const BATCH_SIZE = 25;
 const DELAY_BETWEEN_BATCHES = 1500; // 1.5 seconds
 
