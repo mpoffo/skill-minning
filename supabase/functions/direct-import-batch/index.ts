@@ -35,7 +35,7 @@ interface Collaborator {
 }
 
 // Background processing function
-async function processInBackground(jobId: string, tenantName: string) {
+async function processInBackground(jobId: string, tenantName: string, limit?: number) {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const supabase = createClient(supabaseUrl, supabaseKey);
@@ -53,7 +53,19 @@ async function processInBackground(jobId: string, tenantName: string) {
     const response = await fetch(COLLABORATORS_URL);
     if (!response.ok) throw new Error("Failed to fetch collaborators");
     
-    const collaborators: Collaborator[] = await response.json();
+    let collaborators: Collaborator[] = await response.json();
+    const totalAvailable = collaborators.length;
+    
+    // Apply limit if specified
+    if (limit && limit > 0) {
+      if (limit > totalAvailable) {
+        await addLog(`Limite solicitado (${limit}) é maior que o disponível. JSON possui ${totalAvailable} colaboradores.`, "warning");
+      } else {
+        collaborators = collaborators.slice(0, limit);
+        await addLog(`Limitando a ${limit} colaboradores (de ${totalAvailable} disponíveis)`, "info");
+      }
+    }
+    
     const totalBatches = Math.ceil(collaborators.length / BATCH_SIZE);
     
     await supabase.from('batch_jobs').update({
@@ -278,7 +290,7 @@ serve(async (req) => {
   }
 
   try {
-    const { action, jobId, tenantName } = await req.json();
+    const { action, jobId, tenantName, limit } = await req.json();
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -314,7 +326,7 @@ serve(async (req) => {
       console.log(`Starting direct import batch job: ${newJob.id}`);
 
       // Start background processing using waitUntil
-      EdgeRuntime.waitUntil(processInBackground(newJob.id, tenantName));
+      EdgeRuntime.waitUntil(processInBackground(newJob.id, tenantName, limit));
 
       return new Response(
         JSON.stringify({ jobId: newJob.id, status: 'started' }),
