@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { PageHeader } from "@/components/PageHeader";
 import { PageFooter } from "@/components/PageFooter";
 import { Input } from "@/components/ui/input";
@@ -39,8 +39,18 @@ interface RankedUser {
   justification?: string;
 }
 
+const TALENT_MINING_STATE_KEY = "talent-mining-state";
+
+interface TalentMiningState {
+  selectedJob: JobPosition | null;
+  searchTerm: string;
+  requiredSkills: RequiredSkill[];
+  rankedUsers: RankedUser[];
+}
+
 export default function TalentMining() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { tenantName, userName, isLoaded, permission, setPermission, isPermissionValid } = usePlatform();
 
   // Job position search
@@ -61,6 +71,40 @@ export default function TalentMining() {
   // Talent ranking
   const [rankedUsers, setRankedUsers] = useState<RankedUser[]>([]);
   const [isLoadingRanking, setIsLoadingRanking] = useState(false);
+
+  // Restore state from sessionStorage on mount
+  useEffect(() => {
+    const restored = searchParams.get("restored");
+    if (restored === "true") {
+      const savedState = sessionStorage.getItem(TALENT_MINING_STATE_KEY);
+      if (savedState) {
+        try {
+          const state: TalentMiningState = JSON.parse(savedState);
+          setSelectedJob(state.selectedJob);
+          setSearchTerm(state.searchTerm);
+          setRequiredSkills(state.requiredSkills);
+          setRankedUsers(state.rankedUsers);
+          sessionStorage.removeItem(TALENT_MINING_STATE_KEY);
+        } catch (e) {
+          console.error("Error restoring state:", e);
+        }
+      }
+      // Clean URL
+      navigate("/talent-mining", { replace: true });
+    }
+  }, [searchParams, navigate]);
+
+  // Save state before navigation
+  const navigateToUserSkills = useCallback((targetUserName: string) => {
+    const state: TalentMiningState = {
+      selectedJob,
+      searchTerm,
+      requiredSkills,
+      rankedUsers,
+    };
+    sessionStorage.setItem(TALENT_MINING_STATE_KEY, JSON.stringify(state));
+    navigate(`/user-skills/${targetUserName}?returnTo=/talent-mining?restored=true`);
+  }, [selectedJob, searchTerm, requiredSkills, rankedUsers, navigate]);
 
   // Load job positions from gist
   useEffect(() => {
@@ -460,7 +504,7 @@ export default function TalentMining() {
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  onClick={() => navigate(`/user-skills/${user.userName}?returnTo=/talent-mining`)}
+                                  onClick={() => navigateToUserSkills(user.userName)}
                                   className="gap-xsmall"
                                 >
                                   <FontAwesomeIcon icon={faEye} />
