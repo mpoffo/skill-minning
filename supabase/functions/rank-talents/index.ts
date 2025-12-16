@@ -115,7 +115,8 @@ serve(async (req) => {
     const rankedUsers: RankedUser[] = [];
 
     for (const user of users) {
-      const userSkillData = userSkillMap[user.id] || {};
+      // Use user_name instead of UUID id since user_skills.user_id stores the username
+      const userSkillData = userSkillMap[user.user_name] || {};
       const matchedSkills: UserSkillMatch[] = [];
       let totalScore = 0;
       let maxPossibleScore = 0;
