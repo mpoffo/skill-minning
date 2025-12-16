@@ -10,8 +10,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// JSON com hard_skills já preenchido
-const COLLABORATORS_URL = "https://gist.githubusercontent.com/diegof-silva/475db68cf2811d6414349a7ea05881be/raw";
+// URL padrão - pode ser sobrescrita via parâmetro sourceUrl
+const DEFAULT_COLLABORATORS_URL = "https://gist.githubusercontent.com/diegof-silva/49b4879dddee2e1b75d5216cf5cc7af9/raw";
 const BATCH_SIZE = 50; // Pode ser maior porque não usa IA
 const DELAY_BETWEEN_BATCHES = 500;
 
@@ -35,7 +35,7 @@ interface Collaborator {
 }
 
 // Background processing function
-async function processInBackground(jobId: string, tenantName: string, limit?: number) {
+async function processInBackground(jobId: string, tenantName: string, limit?: number, sourceUrl?: string) {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const supabase = createClient(supabaseUrl, supabaseKey);
@@ -49,9 +49,10 @@ async function processInBackground(jobId: string, tenantName: string, limit?: nu
 
   try {
     // Load collaborators
-    await addLog("Carregando lista de colaboradores (JSON com hard_skills)...", "info");
-    const response = await fetch(COLLABORATORS_URL);
-    if (!response.ok) throw new Error("Failed to fetch collaborators");
+    const collaboratorsUrl = sourceUrl || DEFAULT_COLLABORATORS_URL;
+    await addLog(`Carregando colaboradores de: ${collaboratorsUrl}`, "info");
+    const response = await fetch(collaboratorsUrl);
+    if (!response.ok) throw new Error(`Failed to fetch collaborators: ${response.status}`);
     
     let collaborators: Collaborator[] = await response.json();
     const totalAvailable = collaborators.length;
@@ -290,7 +291,7 @@ serve(async (req) => {
   }
 
   try {
-    const { action, jobId, tenantName, limit } = await req.json();
+    const { action, jobId, tenantName, limit, sourceUrl } = await req.json();
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -323,10 +324,10 @@ serve(async (req) => {
         throw new Error('Failed to create job');
       }
 
-      console.log(`Starting direct import batch job: ${newJob.id}`);
+      console.log(`Starting direct import batch job: ${newJob.id}, sourceUrl: ${sourceUrl || 'default'}`);
 
       // Start background processing using waitUntil
-      EdgeRuntime.waitUntil(processInBackground(newJob.id, tenantName, limit));
+      EdgeRuntime.waitUntil(processInBackground(newJob.id, tenantName, limit, sourceUrl));
 
       return new Response(
         JSON.stringify({ jobId: newJob.id, status: 'started' }),
