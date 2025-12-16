@@ -5,6 +5,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Version: 2.0.1 - Force redeploy
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
