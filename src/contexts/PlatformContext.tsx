@@ -58,7 +58,75 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
   }, [permission, revalidatePermission]);
 
   useEffect(() => {
-    // First, try to load from sessionStorage (for emulator redirect flow)
+    const isInIframe = window.parent !== window;
+    
+    // If running inside an iframe (integrated in platform), prioritize postMessage
+    if (isInIframe) {
+      console.log('Running inside iframe - waiting for postMessage from platform');
+      
+      const handleMessage = (event: MessageEvent) => {
+        console.log('Received postMessage:', event.data);
+        
+        try {
+          const data = event.data as PlatformMessage;
+          
+          if (data.token && data.servicesUrl) {
+            setToken(data.token);
+            setServicesUrl(data.servicesUrl);
+            setIsLoaded(true);
+            
+            // Store in sessionStorage for page reloads within iframe
+            sessionStorage.setItem('platformContext', JSON.stringify(data));
+            
+            console.log('Platform context loaded from postMessage:', {
+              userName: data.token.username.split('@')[0],
+              tenantName: data.token.tenantName,
+              fullName: data.token.fullName,
+              accessToken: data.token.access_token?.substring(0, 10) + '...',
+            });
+          }
+        } catch (error) {
+          console.error('Error processing postMessage:', error);
+        }
+      };
+
+      window.addEventListener('message', handleMessage);
+      
+      // Notify parent that we're ready to receive messages
+      window.parent.postMessage({ type: 'TALENT_MINING_READY' }, '*');
+      
+      // Also check sessionStorage for page reloads within iframe
+      // But only use it if we don't receive postMessage within 2 seconds
+      const timeoutId = setTimeout(() => {
+        if (!isLoaded) {
+          const storedContext = sessionStorage.getItem('platformContext');
+          if (storedContext) {
+            try {
+              const data = JSON.parse(storedContext) as PlatformMessage;
+              if (data.token && data.servicesUrl) {
+                setToken(data.token);
+                setServicesUrl(data.servicesUrl);
+                setIsLoaded(true);
+                console.log('Platform context loaded from sessionStorage (fallback in iframe):', {
+                  userName: data.token.username.split('@')[0],
+                  tenantName: data.token.tenantName,
+                });
+              }
+            } catch (error) {
+              console.error('Error parsing stored platform context:', error);
+            }
+          }
+        }
+      }, 2000);
+
+      return () => {
+        window.removeEventListener('message', handleMessage);
+        clearTimeout(timeoutId);
+      };
+    }
+    
+    // Not in iframe (standalone/emulator mode) - use sessionStorage directly
+    console.log('Running standalone - loading from sessionStorage');
     const storedContext = sessionStorage.getItem('platformContext');
     if (storedContext) {
       try {
@@ -72,51 +140,14 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
             userName: data.token.username.split('@')[0],
             tenantName: data.token.tenantName,
             fullName: data.token.fullName,
+            accessToken: data.token.access_token?.substring(0, 10) + '...',
           });
-          return;
         }
       } catch (error) {
         console.error('Error parsing stored platform context:', error);
       }
     }
-
-    // Fallback to postMessage for iframe scenario
-    const handleMessage = (event: MessageEvent) => {
-      console.log('Received postMessage:', event.data);
-      
-      try {
-        const data = event.data as PlatformMessage;
-        
-        if (data.token && data.servicesUrl) {
-          setToken(data.token);
-          setServicesUrl(data.servicesUrl);
-          setIsLoaded(true);
-          
-          // Also store in sessionStorage
-          sessionStorage.setItem('platformContext', JSON.stringify(data));
-          
-          console.log('Platform context loaded from postMessage:', {
-            userName: data.token.username.split('@')[0],
-            tenantName: data.token.tenantName,
-            fullName: data.token.fullName,
-          });
-        }
-      } catch (error) {
-        console.error('Error processing postMessage:', error);
-      }
-    };
-
-    window.addEventListener('message', handleMessage);
-    
-    // Notify parent that we're ready to receive messages
-    if (window.parent !== window) {
-      window.parent.postMessage({ type: 'TALENT_MINING_READY' }, '*');
-    }
-
-    return () => {
-      window.removeEventListener('message', handleMessage);
-    };
-  }, []);
+  }, [isLoaded]);
 
   // Extract username without domain
   const userName = token?.username ? token.username.split('@')[0] : null;
