@@ -8,10 +8,16 @@ interface UseCheckAccessOptions {
   onAccessDenied?: () => void;
 }
 
+interface CheckAccessDebugInfo {
+  request: Record<string, unknown> | null;
+  response: Record<string, unknown> | null;
+}
+
 interface UseCheckAccessReturn {
   hasAccess: boolean | null;
   isChecking: boolean;
   error: string | null;
+  debugInfo: CheckAccessDebugInfo;
   recheck: () => Promise<void>;
 }
 
@@ -24,6 +30,10 @@ export function useCheckAccess({
   const [hasAccess, setHasAccess] = useState<boolean | null>(null);
   const [isChecking, setIsChecking] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [debugInfo, setDebugInfo] = useState<CheckAccessDebugInfo>({
+    request: null,
+    response: null,
+  });
 
   const checkAccess = useCallback(async () => {
     if (!isLoaded) return;
@@ -59,12 +69,20 @@ export function useCheckAccess({
         return;
       }
 
+      // Store debug info (request and response)
+      setDebugInfo({
+        request: data?.request || null,
+        response: data?.response || null,
+      });
+
       // Check both hasAccess field AND raw.authorized to ensure access is granted
       const accessGranted = data?.hasAccess === true && data?.raw?.authorized === true;
       console.log(`CheckAccess for ${resource}/${permission}:`, {
         hasAccess: data?.hasAccess,
         rawAuthorized: data?.raw?.authorized,
-        accessGranted
+        accessGranted,
+        request: data?.request,
+        response: data?.response,
       });
       setHasAccess(accessGranted);
 
@@ -90,6 +108,7 @@ export function useCheckAccess({
     hasAccess,
     isChecking,
     error,
+    debugInfo,
     recheck: checkAccess,
   };
 }
