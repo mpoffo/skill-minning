@@ -376,247 +376,303 @@ export default function TalentMining() {
     );
   }
 
+  // Predefined prompts for AI search
+  const predefinedPrompts = [
+    "Desenvolvedor Python Sênior para Backend em microserviços",
+    "Tech Lead com experiência em AWS e Kubernetes",
+    "Analista de Dados com conhecimento em Machine Learning",
+    "Desenvolvedor Full Stack com React e Node.js",
+    "DevOps Engineer com experiência em CI/CD e Docker",
+  ];
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <PageHeader title="Talent Mining" />
 
       <main className="flex-1 p-xlarge">
-        <div className="max-w-6xl mx-auto space-y-xlarge">
-          {/* Search Mode Toggle */}
-          <Card>
-            <CardHeader className="pb-small">
-              <div className="flex items-center justify-between">
-                <CardTitle>Modo de Busca</CardTitle>
-                <div className="flex items-center gap-sml">
-                  <Label htmlFor="search-mode" className={`text-small ${!isAISearchMode ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>
-                    Seleção de Cargo
-                  </Label>
-                  <Switch
-                    id="search-mode"
-                    checked={isAISearchMode}
-                    onCheckedChange={setIsAISearchMode}
-                  />
-                  <Label htmlFor="search-mode" className={`text-small flex items-center gap-xsmall ${isAISearchMode ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>
-                    <FontAwesomeIcon icon={faRobot} className="text-primary" />
-                    Busca com IA
-                  </Label>
-                </div>
+        <div className="max-w-6xl mx-auto space-y-medium">
+          {/* Hero Section with Mode Toggle */}
+          <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-xxbig p-big border border-primary/20">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-medium">
+              <div>
+                <h1 className="text-h2-bold text-foreground mb-xsmall">
+                  Encontre os Melhores Talentos
+                </h1>
+                <p className="text-label text-muted-foreground max-w-xl">
+                  Utilize inteligência artificial para identificar candidatos ideais com base em habilidades e requisitos específicos.
+                </p>
               </div>
-            </CardHeader>
-          </Card>
+              
+              {/* Mode Toggle Pills */}
+              <div className="flex items-center bg-card rounded-big p-xsmall shadow-dp02 border border-border">
+                <button
+                  onClick={() => setIsAISearchMode(false)}
+                  className={`px-default py-sml rounded-medium text-label font-medium transition-all ${
+                    !isAISearchMode 
+                      ? 'bg-primary text-primary-foreground shadow-dp02' 
+                      : 'text-muted-foreground hover:text-foreground hover:bg-grayscale-10'
+                  }`}
+                >
+                  <FontAwesomeIcon icon={faBriefcase} className="mr-xsmall" />
+                  Seleção de Cargo
+                </button>
+                <button
+                  onClick={() => setIsAISearchMode(true)}
+                  className={`px-default py-sml rounded-medium text-label font-medium transition-all flex items-center gap-xsmall ${
+                    isAISearchMode 
+                      ? 'bg-primary text-primary-foreground shadow-dp02' 
+                      : 'text-muted-foreground hover:text-foreground hover:bg-grayscale-10'
+                  }`}
+                >
+                  <FontAwesomeIcon icon={faRobot} />
+                  Busca com IA
+                </button>
+              </div>
+            </div>
+          </div>
 
           {/* Traditional Mode: Job Position Search */}
           {!isAISearchMode && (
             <>
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-sml">
-                    <FontAwesomeIcon icon={faBriefcase} className="text-primary" />
-                    Seleção de Cargo
-                  </CardTitle>
-                  <CardDescription>
-                    Busque e selecione um cargo para identificar as habilidades necessárias
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="relative">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-medium">
+                {/* Job Search Card */}
+                <Card className="lg:col-span-1 shadow-dp04 border-0">
+                  <CardHeader className="pb-sml">
+                    <div className="flex items-center gap-sml mb-xsmall">
+                      <div className="w-10 h-10 rounded-big bg-primary/10 flex items-center justify-center">
+                        <FontAwesomeIcon icon={faSearch} className="text-primary" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-h3-bold">Buscar Cargo</CardTitle>
+                        <CardDescription className="text-small">
+                          Selecione um cargo para continuar
+                        </CardDescription>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
                     <div className="relative">
-                      <FontAwesomeIcon
-                        icon={faSearch}
-                        className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-                      />
-                      <Input
-                        placeholder="Digite o nome do cargo..."
-                        value={searchTerm}
-                        onChange={(e) => {
-                          setSearchTerm(e.target.value);
-                          setShowDropdown(true);
-                          if (!e.target.value) {
-                            setSelectedJob(null);
-                            setRequiredSkills([]);
-                            setRankedUsers([]);
-                          }
-                        }}
-                        onFocus={() => setShowDropdown(true)}
-                        className="pl-10"
-                      />
-                    </div>
-
-                    {/* Autocomplete dropdown */}
-                    {showDropdown && filteredPositions.length > 0 && (
-                      <div className="absolute z-20 w-full mt-xsmall bg-card border border-border rounded-big shadow-dp08 max-h-[300px] overflow-auto">
-                        {filteredPositions.map((job) => (
-                          <button
-                            key={job.id}
-                            onClick={() => handleSelectJob(job)}
-                            className="w-full text-left px-default py-sml hover:bg-grayscale-5 transition-colors border-b border-border last:border-b-0"
-                          >
-                            <span className="text-label text-foreground">{job.jobPositionName}</span>
-                          </button>
-                        ))}
+                      <div className="relative">
+                        <FontAwesomeIcon
+                          icon={faSearch}
+                          className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                        />
+                        <Input
+                          placeholder="Digite o nome do cargo..."
+                          value={searchTerm}
+                          onChange={(e) => {
+                            setSearchTerm(e.target.value);
+                            setShowDropdown(true);
+                            if (!e.target.value) {
+                              setSelectedJob(null);
+                              setRequiredSkills([]);
+                              setRankedUsers([]);
+                            }
+                          }}
+                          onFocus={() => setShowDropdown(true)}
+                          className="pl-10 h-11"
+                        />
                       </div>
-                    )}
-                  </div>
 
-                  {/* Selected job description */}
-                  {selectedJob && (
-                    <div className="mt-medium p-default bg-grayscale-5 rounded-big">
-                      <h4 className="text-label font-semibold text-foreground mb-xsmall">
-                        {selectedJob.jobPositionName}
-                      </h4>
-                      <p className="text-small text-muted-foreground">
-                        {selectedJob.jobPositionDescription}
-                      </p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Required Skills */}
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle>Habilidades Requeridas</CardTitle>
-                      <CardDescription>
-                        Ajuste o nível de proficiência esperado para cada habilidade
-                      </CardDescription>
-                    </div>
-                    <span className="text-small text-muted-foreground">
-                      {requiredSkills.length} habilidade{requiredSkills.length !== 1 ? "s" : ""}
-                    </span>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {isLoadingSkills ? (
-                    <div className="flex items-center justify-center py-xlarge">
-                      <FontAwesomeIcon icon={faSpinner} spin className="text-primary text-2xl mr-sml" />
-                      <span className="text-label text-muted-foreground">
-                        Identificando habilidades via IA...
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="space-y-medium">
-                      {/* Add skill input */}
-                      <div className="flex gap-sml">
-                        {isAddingSkill ? (
-                          <>
-                            <Input
-                              placeholder="Nome da habilidade..."
-                              value={newSkillName}
-                              onChange={(e) => setNewSkillName(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") handleAddSkill();
-                                if (e.key === "Escape") {
-                                  setIsAddingSkill(false);
-                                  setNewSkillName("");
-                                }
-                              }}
-                              autoFocus
-                              className="flex-1"
-                            />
-                            <Button onClick={handleAddSkill} disabled={!newSkillName.trim()}>
-                              Adicionar
-                            </Button>
-                            <Button
-                              variant="outline"
-                              onClick={() => {
-                                setIsAddingSkill(false);
-                                setNewSkillName("");
-                              }}
+                      {/* Autocomplete dropdown */}
+                      {showDropdown && filteredPositions.length > 0 && (
+                        <div className="absolute z-20 w-full mt-xsmall bg-card border border-border rounded-big shadow-dp08 max-h-[300px] overflow-auto">
+                          {filteredPositions.map((job) => (
+                            <button
+                              key={job.id}
+                              onClick={() => handleSelectJob(job)}
+                              className="w-full text-left px-default py-sml hover:bg-primary/5 transition-colors border-b border-border last:border-b-0"
                             >
-                              Cancelar
-                            </Button>
-                          </>
-                        ) : (
-                          <Button
-                            variant="outline"
-                            onClick={() => setIsAddingSkill(true)}
-                            className="gap-sml"
-                          >
-                            <FontAwesomeIcon icon={faPlus} />
-                            Adicionar Habilidade
-                          </Button>
-                        )}
-                      </div>
-
-                      {/* Skills grid */}
-                      {requiredSkills.length > 0 ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-sml">
-                          {requiredSkills.map((skill) => (
-                            <RequiredSkillCard
-                              key={skill.name}
-                              name={skill.name}
-                              proficiency={skill.proficiency}
-                              onProficiencyChange={updateSkillProficiency}
-                              onDelete={removeSkill}
-                            />
+                              <span className="text-label text-foreground">{job.jobPositionName}</span>
+                            </button>
                           ))}
                         </div>
-                      ) : (
-                        <div className="text-center py-xlarge text-muted-foreground">
-                          <p>Selecione um cargo acima ou adicione habilidades manualmente</p>
-                        </div>
-                      )}
-
-                      {/* Mine talents button */}
-                      {requiredSkills.length > 0 && (
-                        <div className="flex justify-end pt-medium border-t border-border">
-                          <Button
-                            onClick={handleMineTalents}
-                            disabled={isLoadingRanking}
-                            size="lg"
-                            className="gap-sml"
-                          >
-                            {isLoadingRanking ? (
-                              <FontAwesomeIcon icon={faSpinner} spin />
-                            ) : (
-                              <FontAwesomeIcon icon={faUsers} />
-                            )}
-                            Minerar Talentos
-                          </Button>
-                        </div>
                       )}
                     </div>
-                  )}
-                </CardContent>
-              </Card>
 
-              {/* Ranked Users (Traditional Mode) */}
-              {(isLoadingRanking || rankedUsers.length > 0) && (
-                <Card>
-                  <CardHeader>
+                    {/* Selected job description */}
+                    {selectedJob && (
+                      <div className="mt-medium p-default bg-gradient-to-br from-primary/5 to-transparent rounded-big border border-primary/20">
+                        <div className="flex items-start gap-sml">
+                          <div className="w-8 h-8 rounded-medium bg-primary/10 flex items-center justify-center flex-shrink-0 mt-xxsmall">
+                            <FontAwesomeIcon icon={faBriefcase} className="text-primary text-sm" />
+                          </div>
+                          <div>
+                            <h4 className="text-label font-semibold text-foreground mb-xsmall">
+                              {selectedJob.jobPositionName}
+                            </h4>
+                            <p className="text-small text-muted-foreground leading-relaxed">
+                              {selectedJob.jobPositionDescription}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Required Skills Card */}
+                <Card className="lg:col-span-2 shadow-dp04 border-0">
+                  <CardHeader className="pb-sml">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-sml">
-                        <FontAwesomeIcon icon={faUserGroup} className="text-primary" />
-                        <CardTitle>Top {Math.min(rankedUsers.length, 20)} Candidatos</CardTitle>
+                        <div className="w-10 h-10 rounded-big bg-success/10 flex items-center justify-center">
+                          <FontAwesomeIcon icon={faUsers} className="text-success" />
+                        </div>
+                        <div>
+                          <CardTitle className="text-h3-bold">Habilidades Requeridas</CardTitle>
+                          <CardDescription className="text-small">
+                            Ajuste o nível de proficiência esperado
+                          </CardDescription>
+                        </div>
                       </div>
-                      {selectedJob && (
-                        <Badge variant="outline" className="text-small">
-                          {selectedJob.jobPositionName}
+                      {requiredSkills.length > 0 && (
+                        <Badge className="bg-primary/10 text-primary border-0">
+                          {requiredSkills.length} {requiredSkills.length === 1 ? 'habilidade' : 'habilidades'}
                         </Badge>
                       )}
                     </div>
-                    {requiredSkills.length > 0 && (
-                      <div className="flex flex-wrap gap-xsmall mt-sml">
-                        {requiredSkills.slice(0, 5).map((skill) => (
-                          <Badge key={skill.name} className="bg-primary/10 text-primary">
-                            {skill.name}
-                          </Badge>
-                        ))}
-                        {requiredSkills.length > 5 && (
-                          <Badge variant="outline">+{requiredSkills.length - 5}</Badge>
+                  </CardHeader>
+                  <CardContent>
+                    {isLoadingSkills ? (
+                      <div className="flex items-center justify-center py-xlarge">
+                        <div className="text-center">
+                          <FontAwesomeIcon icon={faSpinner} spin className="text-primary text-3xl mb-sml" />
+                          <p className="text-label text-muted-foreground">
+                            Identificando habilidades via IA...
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-medium">
+                        {/* Add skill input */}
+                        <div className="flex gap-sml">
+                          {isAddingSkill ? (
+                            <>
+                              <Input
+                                placeholder="Nome da habilidade..."
+                                value={newSkillName}
+                                onChange={(e) => setNewSkillName(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") handleAddSkill();
+                                  if (e.key === "Escape") {
+                                    setIsAddingSkill(false);
+                                    setNewSkillName("");
+                                  }
+                                }}
+                                autoFocus
+                                className="flex-1"
+                              />
+                              <Button onClick={handleAddSkill} disabled={!newSkillName.trim()}>
+                                Adicionar
+                              </Button>
+                              <Button
+                                variant="outline"
+                                onClick={() => {
+                                  setIsAddingSkill(false);
+                                  setNewSkillName("");
+                                }}
+                              >
+                                Cancelar
+                              </Button>
+                            </>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              onClick={() => setIsAddingSkill(true)}
+                              className="gap-sml border-dashed border-2 hover:border-primary hover:bg-primary/5"
+                            >
+                              <FontAwesomeIcon icon={faPlus} />
+                              Adicionar Habilidade
+                            </Button>
+                          )}
+                        </div>
+
+                        {/* Skills grid */}
+                        {requiredSkills.length > 0 ? (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-sml">
+                            {requiredSkills.map((skill) => (
+                              <RequiredSkillCard
+                                key={skill.name}
+                                name={skill.name}
+                                proficiency={skill.proficiency}
+                                onProficiencyChange={updateSkillProficiency}
+                                onDelete={removeSkill}
+                              />
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-center py-big text-muted-foreground border-2 border-dashed border-border rounded-big">
+                            <FontAwesomeIcon icon={faBriefcase} className="text-3xl mb-sml opacity-30" />
+                            <p className="text-label">Selecione um cargo ou adicione habilidades</p>
+                          </div>
+                        )}
+
+                        {/* Mine talents button */}
+                        {requiredSkills.length > 0 && (
+                          <div className="flex justify-end pt-medium border-t border-border">
+                            <Button
+                              onClick={handleMineTalents}
+                              disabled={isLoadingRanking}
+                              size="lg"
+                              className="gap-sml shadow-dp04 hover:shadow-dp06 transition-shadow"
+                            >
+                              {isLoadingRanking ? (
+                                <FontAwesomeIcon icon={faSpinner} spin />
+                              ) : (
+                                <FontAwesomeIcon icon={faUsers} />
+                              )}
+                              Minerar Talentos
+                            </Button>
+                          </div>
                         )}
                       </div>
                     )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Ranked Users (Traditional Mode) */}
+              {(isLoadingRanking || rankedUsers.length > 0) && (
+                <Card className="shadow-dp04 border-0">
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-sml">
+                        <div className="w-10 h-10 rounded-big bg-primary/10 flex items-center justify-center">
+                          <FontAwesomeIcon icon={faUserGroup} className="text-primary" />
+                        </div>
+                        <div>
+                          <CardTitle className="text-h3-bold">Top {Math.min(rankedUsers.length, 20)} Candidatos</CardTitle>
+                          {selectedJob && (
+                            <CardDescription className="text-small">
+                              {selectedJob.jobPositionName}
+                            </CardDescription>
+                          )}
+                        </div>
+                      </div>
+                      {requiredSkills.length > 0 && (
+                        <div className="hidden md:flex flex-wrap gap-xsmall">
+                          {requiredSkills.slice(0, 3).map((skill) => (
+                            <Badge key={skill.name} className="bg-primary/10 text-primary border-0 text-small">
+                              {skill.name}
+                            </Badge>
+                          ))}
+                          {requiredSkills.length > 3 && (
+                            <Badge variant="outline" className="text-small">+{requiredSkills.length - 3}</Badge>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </CardHeader>
                   <CardContent>
                     {isLoadingRanking ? (
                       <div className="flex items-center justify-center py-xlarge">
-                        <FontAwesomeIcon icon={faSpinner} spin className="text-primary text-2xl mr-sml" />
-                        <span className="text-label text-muted-foreground">
-                          Minerando talentos com busca semântica...
-                        </span>
+                        <div className="text-center">
+                          <FontAwesomeIcon icon={faSpinner} spin className="text-primary text-3xl mb-sml" />
+                          <p className="text-label text-muted-foreground">
+                            Minerando talentos com busca semântica...
+                          </p>
+                        </div>
                       </div>
                     ) : (
                       <div className="space-y-sml">
@@ -644,29 +700,58 @@ export default function TalentMining() {
           {/* AI Search Mode */}
           {isAISearchMode && (
             <>
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-sml">
-                    <FontAwesomeIcon icon={faRobot} className="text-primary" />
-                    Busca Inteligente com IA
-                  </CardTitle>
-                  <CardDescription>
-                    Descreva os requisitos da vaga em linguagem natural e a IA encontrará os melhores candidatos
-                  </CardDescription>
+              <Card className="shadow-dp04 border-0 overflow-hidden">
+                <CardHeader className="pb-sml bg-gradient-to-r from-primary/5 to-transparent">
+                  <div className="flex items-center gap-sml">
+                    <div className="w-10 h-10 rounded-big bg-primary/10 flex items-center justify-center">
+                      <FontAwesomeIcon icon={faRobot} className="text-primary" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-h3-bold">Busca Inteligente com IA</CardTitle>
+                      <CardDescription className="text-small">
+                        Descreva os requisitos em linguagem natural
+                      </CardDescription>
+                    </div>
+                  </div>
                 </CardHeader>
-                <CardContent className="space-y-medium">
-                  <Textarea
-                    placeholder="Preciso de um profissional PYTHON SÊNIOR para atuar como Backend em microserviços. Contexto: projeto em produção com alta concorrência e observabilidade. Requisitos obrigatórios: Python, FastAPI ou Django REST Framework, PostgreSQL, Docker, Kubernetes. Desejável: conhecimento em mensageria (Kafka/RabbitMQ), observabilidade (Prometheus/Grafana), inglês avançado."
-                    value={aiSearchQuery}
-                    onChange={(e) => setAISearchQuery(e.target.value)}
-                    className="min-h-[150px] text-label"
-                  />
-                  <div className="flex justify-end">
+                <CardContent className="space-y-medium pt-medium">
+                  {/* Predefined Prompts */}
+                  <div className="space-y-sml">
+                    <p className="text-small text-muted-foreground font-medium">Exemplos de busca:</p>
+                    <div className="flex flex-wrap gap-xsmall">
+                      {predefinedPrompts.map((prompt, index) => (
+                        <button
+                          key={index}
+                          onClick={() => setAISearchQuery(prompt)}
+                          className="text-small text-primary hover:text-primary/80 hover:underline transition-colors text-left"
+                        >
+                          • {prompt}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="relative">
+                    <Textarea
+                      placeholder="Ex: Preciso de um profissional PYTHON SÊNIOR para atuar como Backend em microserviços. Contexto: projeto em produção com alta concorrência. Requisitos: Python, FastAPI, PostgreSQL, Docker, Kubernetes..."
+                      value={aiSearchQuery}
+                      onChange={(e) => setAISearchQuery(e.target.value)}
+                      className="min-h-[140px] text-label resize-none border-2 focus:border-primary transition-colors"
+                    />
+                    <div className="absolute bottom-3 right-3 text-small text-muted-foreground">
+                      {aiSearchQuery.length} caracteres
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center justify-between pt-sml">
+                    <p className="text-small text-muted-foreground">
+                      💡 Quanto mais detalhes você fornecer, melhores serão os resultados
+                    </p>
                     <Button
                       onClick={handleAISearch}
                       disabled={isLoadingAISearch || !aiSearchQuery.trim()}
                       size="lg"
-                      className="gap-sml"
+                      className="gap-sml shadow-dp04 hover:shadow-dp06 transition-shadow"
                     >
                       {isLoadingAISearch ? (
                         <FontAwesomeIcon icon={faSpinner} spin />
@@ -681,15 +766,17 @@ export default function TalentMining() {
 
               {/* AI Search Loading */}
               {isLoadingAISearch && (
-                <Card>
-                  <CardContent className="py-xlarge">
+                <Card className="shadow-dp04 border-0">
+                  <CardContent className="py-xxbig">
                     <div className="flex flex-col items-center justify-center gap-sml">
-                      <FontAwesomeIcon icon={faSpinner} spin className="text-primary text-4xl" />
-                      <span className="text-label text-muted-foreground">
+                      <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-sml">
+                        <FontAwesomeIcon icon={faSpinner} spin className="text-primary text-2xl" />
+                      </div>
+                      <span className="text-label text-foreground font-medium">
                         Processando busca com IA...
                       </span>
                       <span className="text-small text-muted-foreground">
-                        Isso pode levar alguns minutos
+                        Analisando perfis e identificando candidatos ideais
                       </span>
                     </div>
                   </CardContent>
