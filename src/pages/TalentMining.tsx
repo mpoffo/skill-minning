@@ -9,7 +9,8 @@ import { RequiredSkillCard } from "@/components/RequiredSkillCard";
 import { usePlatform } from "@/contexts/PlatformContext";
 import { supabase } from "@/integrations/supabase/client";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faSearch, faBriefcase, faUsers, faSpinner, faTrophy, faMedal, faAward, faPlus, faEye } from "@fortawesome/free-solid-svg-icons";
+import { faSearch, faBriefcase, faUsers, faSpinner, faTrophy, faMedal, faAward, faPlus, faEye, faUser } from "@fortawesome/free-solid-svg-icons";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -71,6 +72,16 @@ export default function TalentMining() {
   // Talent ranking
   const [rankedUsers, setRankedUsers] = useState<RankedUser[]>([]);
   const [isLoadingRanking, setIsLoadingRanking] = useState(false);
+
+  // Profile summary dialog
+  const [profileDialogOpen, setProfileDialogOpen] = useState(false);
+  const [profileData, setProfileData] = useState<{
+    name: string;
+    position: string;
+    seniority: string;
+    summary: string;
+  } | null>(null);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
 
   // Restore state from sessionStorage on mount
   useEffect(() => {
@@ -255,6 +266,47 @@ export default function TalentMining() {
         return <FontAwesomeIcon icon={faAward} className="text-primary text-xl" />;
       default:
         return <span className="text-label text-muted-foreground font-bold">{index + 1}º</span>;
+    }
+  };
+
+  const handleViewProfile = async (targetUserName: string) => {
+    setIsLoadingProfile(true);
+    setProfileDialogOpen(true);
+    setProfileData(null);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-profile-summary", {
+        body: { userName: targetUserName },
+      });
+
+      if (error) throw error;
+
+      if (data.error) {
+        toast({
+          title: "Colaborador não encontrado",
+          description: "Não foram encontrados dados para este colaborador",
+          variant: "destructive",
+        });
+        setProfileDialogOpen(false);
+        return;
+      }
+
+      setProfileData({
+        name: data.collaborator.name,
+        position: data.collaborator.position,
+        seniority: data.collaborator.seniority,
+        summary: data.summary,
+      });
+    } catch (error) {
+      console.error("Error fetching profile:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível gerar o perfil resumido",
+        variant: "destructive",
+      });
+      setProfileDialogOpen(false);
+    } finally {
+      setIsLoadingProfile(false);
     }
   };
 
@@ -510,6 +562,15 @@ export default function TalentMining() {
                                   <FontAwesomeIcon icon={faEye} />
                                   Ver habilidades
                                 </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleViewProfile(user.userName)}
+                                  className="gap-xsmall"
+                                >
+                                  <FontAwesomeIcon icon={faUser} />
+                                  Perfil
+                                </Button>
                               </div>
                             </div>
                             
@@ -562,6 +623,35 @@ export default function TalentMining() {
         permission={permission}
         onPermissionChange={setPermission}
       />
+
+      {/* Profile Summary Dialog */}
+      <Dialog open={profileDialogOpen} onOpenChange={setProfileDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-sml">
+              <FontAwesomeIcon icon={faUser} className="text-primary" />
+              Perfil Resumido
+            </DialogTitle>
+            {profileData && (
+              <DialogDescription>
+                {profileData.name} • {profileData.position} • {profileData.seniority}
+              </DialogDescription>
+            )}
+          </DialogHeader>
+          <div className="py-medium">
+            {isLoadingProfile ? (
+              <div className="flex items-center justify-center py-xlarge">
+                <FontAwesomeIcon icon={faSpinner} spin className="text-primary text-xl mr-sml" />
+                <span className="text-muted-foreground">Gerando perfil resumido...</span>
+              </div>
+            ) : profileData ? (
+              <p className="text-body text-foreground leading-relaxed">
+                {profileData.summary}
+              </p>
+            ) : null}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
