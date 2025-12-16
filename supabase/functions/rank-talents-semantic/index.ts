@@ -24,6 +24,7 @@ interface RankedUser {
   fullName: string;
   matchScore: number;
   matchedSkills: UserSkillMatch[];
+  justification?: string;
 }
 
 serve(async (req) => {
@@ -281,6 +282,72 @@ REGRAS:
 
     // Sort by match score descending
     rankedUsers.sort((a, b) => b.matchScore - a.matchScore);
+
+    // Generate AI justifications for top 3
+    const top3 = rankedUsers.slice(0, 3);
+    if (top3.length > 0) {
+      const requiredSkillNames = requiredSkills.map((s: RequiredSkill) => s.name).join(", ");
+      
+      const justificationPrompt = `Você é um especialista em recrutamento e RH. Analise o ranking de candidatos e forneça uma justificativa CURTA (máximo 2 frases) para cada um dos top 3 candidatos.
+
+HABILIDADES REQUERIDAS PARA A VAGA:
+${requiredSkillNames}
+
+TOP 3 CANDIDATOS:
+${top3.map((u, i) => `${i + 1}. ${u.fullName} (${Math.round(u.matchScore)}% aderência)
+   Habilidades correspondentes: ${u.matchedSkills.map(s => `${s.skillName} (${s.userProficiency}★)`).join(", ")}`).join("\n\n")}
+
+Retorne APENAS um JSON no formato:
+{
+  "justifications": [
+    { "userName": "nome_usuario", "text": "Justificativa curta explicando por que este candidato é adequado." }
+  ]
+}
+
+REGRAS:
+- Seja objetivo e específico
+- Mencione as principais habilidades que destacam cada candidato
+- Destaque pontos fortes e diferenciais
+- Use linguagem profissional em português`;
+
+      try {
+        const justResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "google/gemini-2.5-flash",
+            messages: [
+              { role: "user", content: justificationPrompt },
+            ],
+          }),
+        });
+
+        if (justResponse.ok) {
+          const justData = await justResponse.json();
+          const justContent = justData.choices?.[0]?.message?.content || "{}";
+          
+          try {
+            const jsonMatch = justContent.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+              const parsed = JSON.parse(jsonMatch[0]);
+              for (const just of parsed.justifications || []) {
+                const user = rankedUsers.find(u => u.userName === just.userName);
+                if (user) {
+                  user.justification = just.text;
+                }
+              }
+            }
+          } catch (parseErr) {
+            console.error("Error parsing justifications:", parseErr);
+          }
+        }
+      } catch (justErr) {
+        console.error("Error generating justifications:", justErr);
+      }
+    }
 
     console.log(`Returning ${rankedUsers.length} ranked users`);
 

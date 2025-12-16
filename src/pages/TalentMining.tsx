@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { PageHeader } from "@/components/PageHeader";
 import { PageFooter } from "@/components/PageFooter";
 import { Input } from "@/components/ui/input";
@@ -8,7 +9,7 @@ import { RequiredSkillCard } from "@/components/RequiredSkillCard";
 import { usePlatform } from "@/contexts/PlatformContext";
 import { supabase } from "@/integrations/supabase/client";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faSearch, faBriefcase, faUsers, faSpinner, faTrophy, faMedal, faAward, faPlus } from "@fortawesome/free-solid-svg-icons";
+import { faSearch, faBriefcase, faUsers, faSpinner, faTrophy, faMedal, faAward, faPlus, faEye } from "@fortawesome/free-solid-svg-icons";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -35,9 +36,11 @@ interface RankedUser {
     userProficiency: number;
     similarity: number;
   }[];
+  justification?: string;
 }
 
 export default function TalentMining() {
+  const navigate = useNavigate();
   const { tenantName, userName, isLoaded, permission, setPermission, isPermissionValid } = usePlatform();
 
   // Job position search
@@ -447,13 +450,34 @@ export default function TalentMining() {
                                   @{user.userName}
                                 </span>
                               </div>
-                              <div className="text-right">
-                                <span className="text-h3 font-bold text-primary">
-                                  {Math.round(user.matchScore)}%
-                                </span>
-                                <p className="text-small text-muted-foreground">Aderência</p>
+                              <div className="flex items-center gap-sml">
+                                <div className="text-right">
+                                  <span className="text-h3 font-bold text-primary">
+                                    {Math.round(user.matchScore)}%
+                                  </span>
+                                  <p className="text-small text-muted-foreground">Aderência</p>
+                                </div>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => navigate(`/user-skills/${user.userName}?returnTo=/talent-mining`)}
+                                  className="gap-xsmall"
+                                >
+                                  <FontAwesomeIcon icon={faEye} />
+                                  Ver habilidades
+                                </Button>
                               </div>
                             </div>
+                            
+                            {/* Justification for top 3 */}
+                            {index < 3 && user.justification && (
+                              <div className="mb-sml p-sml bg-background/50 rounded-medium border border-border/50">
+                                <p className="text-small text-foreground italic">
+                                  "{user.justification}"
+                                </p>
+                              </div>
+                            )}
+                            
                             <div className="flex flex-wrap gap-xsmall mt-sml">
                               {user.matchedSkills.map((skill) => (
                                 <div
