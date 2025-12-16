@@ -102,6 +102,16 @@ serve(async (req) => {
       const checkAccessUrl = `${servicesUrl}platform/authorization/queries/checkAccess`;
       console.log(`CheckAccess URL: ${checkAccessUrl}`);
 
+      // Build the request payload once (used for request + debug)
+      const requestPayload = {
+        permissions: [
+          {
+            resource,
+            action: permission,
+          },
+        ],
+      };
+
       // Use Bearer token
       const checkAccessResponse = await fetch(checkAccessUrl, {
         method: 'POST',
@@ -109,14 +119,7 @@ serve(async (req) => {
           'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          permissions: [
-            {
-              resource,
-              action: permission,
-            }
-          ],
-        }),
+        body: JSON.stringify(requestPayload),
       });
 
       console.log(`CheckAccess response status: ${checkAccessResponse.status}`);
@@ -124,11 +127,9 @@ serve(async (req) => {
       if (!checkAccessResponse.ok) {
         const errorText = await checkAccessResponse.text().catch(() => '');
         console.error(`CheckAccess failed: ${errorText}`);
-        
+
         // Generate curl command for debugging
-        const curlBody = JSON.stringify({
-          permissions: [{ resource, action: permission }]
-        });
+        const curlBody = JSON.stringify(requestPayload);
         const curlCommand = `curl -X POST '${checkAccessUrl}' -H 'Authorization: Bearer ${accessToken}' -H 'Content-Type: application/json' -d '${curlBody}'`;
         console.log(`CURL DEBUG:\n${curlCommand}`);
 
@@ -137,6 +138,8 @@ serve(async (req) => {
             error: 'Failed to check access',
             details: errorText,
             hasAccess: false,
+            request: requestPayload,
+            response: null,
             curlCommand,
           }),
           { status: checkAccessResponse.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -147,23 +150,13 @@ serve(async (req) => {
       console.log('CheckAccess successful:', JSON.stringify(accessData));
 
       // Check for various response formats from Senior API
-      const hasAccess = accessData.ok === true || 
-                       accessData.allowed === true || 
+      const hasAccess = accessData.ok === true ||
+                       accessData.allowed === true ||
                        accessData.authorized === true ||
                        (Array.isArray(accessData.permissions) && accessData.permissions.some((p: any) => p.allowed === true || p.authorized === true));
 
-      // Build the request payload for debugging
-      const requestPayload = {
-        permissions: [
-          {
-            resource,
-            action: permission,
-          }
-        ],
-      };
-
       return new Response(
-        JSON.stringify({ 
+        JSON.stringify({
           hasAccess,
           raw: accessData,
           request: requestPayload,
