@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,38 +8,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { usePlatform } from "@/contexts/PlatformContext";
 import { useCheckAccess } from "@/hooks/useCheckAccess";
 import { AccessDenied } from "@/components/AccessDenied";
-import { Play, Pause, Square, CheckCircle, XCircle, Clock, Users, Zap, Database, Loader2 } from "lucide-react";
+import { Play, Pause, Square, CheckCircle, XCircle, Clock, Users, Zap, Database, Loader2, RefreshCw } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { PageFooter } from "@/components/PageFooter";
+import { toast } from "sonner";
 
-const COLLABORATORS_URL = "https://gist.githubusercontent.com/mpoffo/76cb8872843cfd03ff3b44c29ba1f485/raw/69460f00cfa5177ab5ddddcb067e807885b54808/gistfile1.txt";
-const BATCH_SIZE = 25;
-const DELAY_BETWEEN_BATCHES = 1500; // 1.5 seconds
-const BATCH_PROCESSING_STATE_KEY = "batch-processing-state";
 const BATCH_PROCESSING_RESOURCE = "res://senior.com.br/analytics/hcm/myAnalytics";
 const BATCH_PROCESSING_PERMISSION = "Visualizar";
-
-interface Collaborator {
-  employee_id: string;
-  user_name: string;
-  employee_name: string;
-  job_position: string;
-  seniority: string;
-  responsabilities: string;
-  graduation: string;
-  postgraduation: string;
-  certifications: string;
-  language_proficiency: string;
-  PDI: string;
-  feedback: string;
-  hard_skills?: string;
-}
-
-interface ExtractedSkill {
-  name: string;
-  proficiency: number;
-  origin: string;
-}
 
 interface LogEntry {
   timestamp: string;
@@ -47,51 +22,28 @@ interface LogEntry {
   type: "info" | "success" | "error" | "warning";
 }
 
-interface ProcessingStats {
-  collaboratorsProcessed: number;
-  skillsExtracted: number;
-  skillsCreated: number;
-  usersCreated: number;
+interface BatchJob {
+  id: string;
+  tenant_name: string;
+  status: string;
+  total_collaborators: number;
+  processed_collaborators: number;
+  current_batch: number;
+  total_batches: number;
+  skills_extracted: number;
+  skills_created: number;
+  users_created: number;
   errors: number;
-}
-
-type ProcessingStatus = "idle" | "loading" | "running" | "paused" | "completed" | "error";
-
-interface BatchProcessingState {
-  status: ProcessingStatus;
-  collaborators: Collaborator[];
-  currentBatch: number;
-  totalBatches: number;
-  stats: ProcessingStats;
   logs: LogEntry[];
-  startTime: string | null;
-  batchTimes: number[];
-  estimatedTimeRemaining: string;
-  processedUserNames: string[];
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
 }
-
-const getInitialState = (): BatchProcessingState => ({
-  status: "idle",
-  collaborators: [],
-  currentBatch: 0,
-  totalBatches: 0,
-  stats: {
-    collaboratorsProcessed: 0,
-    skillsExtracted: 0,
-    skillsCreated: 0,
-    usersCreated: 0,
-    errors: 0,
-  },
-  logs: [],
-  startTime: null,
-  batchTimes: [],
-  estimatedTimeRemaining: "",
-  processedUserNames: [],
-});
 
 const BatchProcessing = () => {
-  const { token, userName } = usePlatform();
-  const tenantName = "senior.com.br"; // Default tenant for batch processing
+  const { userName } = usePlatform();
+  const tenantName = "senior.com.br";
 
   // Permission check
   const { hasAccess, isChecking } = useCheckAccess({
@@ -99,374 +51,128 @@ const BatchProcessing = () => {
     permission: BATCH_PROCESSING_PERMISSION,
   });
 
-  // State with persistence
-  const [status, setStatus] = useState<ProcessingStatus>("idle");
-  const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
-  const [currentBatch, setCurrentBatch] = useState(0);
-  const [totalBatches, setTotalBatches] = useState(0);
-  const [stats, setStats] = useState<ProcessingStats>({
-    collaboratorsProcessed: 0,
-    skillsExtracted: 0,
-    skillsCreated: 0,
-    usersCreated: 0,
-    errors: 0,
-  });
-  const [logs, setLogs] = useState<LogEntry[]>([]);
-  const [startTime, setStartTime] = useState<Date | null>(null);
-  const [batchTimes, setBatchTimes] = useState<number[]>([]);
-  const [estimatedTimeRemaining, setEstimatedTimeRemaining] = useState<string>("");
-  const [processedUserNames, setProcessedUserNames] = useState<string[]>([]);
+  const [job, setJob] = useState<BatchJob | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const isPausedRef = useRef(false);
-  const isCancelledRef = useRef(false);
-  const isProcessingRef = useRef(false);
-
-  // Save state to sessionStorage
-  const saveState = useCallback(() => {
-    const state: BatchProcessingState = {
-      status,
-      collaborators,
-      currentBatch,
-      totalBatches,
-      stats,
-      logs,
-      startTime: startTime?.toISOString() || null,
-      batchTimes,
-      estimatedTimeRemaining,
-      processedUserNames,
-    };
-    sessionStorage.setItem(BATCH_PROCESSING_STATE_KEY, JSON.stringify(state));
-  }, [status, collaborators, currentBatch, totalBatches, stats, logs, startTime, batchTimes, estimatedTimeRemaining, processedUserNames]);
-
-  // Restore state from sessionStorage
-  useEffect(() => {
-    const savedState = sessionStorage.getItem(BATCH_PROCESSING_STATE_KEY);
-    if (savedState) {
-      try {
-        const state: BatchProcessingState = JSON.parse(savedState);
-        setStatus(state.status);
-        setCollaborators(state.collaborators);
-        setCurrentBatch(state.currentBatch);
-        setTotalBatches(state.totalBatches);
-        setStats(state.stats);
-        setLogs(state.logs.map(log => ({ ...log, timestamp: log.timestamp })));
-        setStartTime(state.startTime ? new Date(state.startTime) : null);
-        setBatchTimes(state.batchTimes);
-        setEstimatedTimeRemaining(state.estimatedTimeRemaining);
-        setProcessedUserNames(state.processedUserNames || []);
-
-        // If was running, mark as paused to allow resume
-        if (state.status === "running") {
-          setStatus("paused");
-          isPausedRef.current = true;
-        }
-      } catch (e) {
-        console.error("Error restoring batch processing state:", e);
-      }
-    }
-  }, []);
-
-  // Auto-save state when it changes
-  useEffect(() => {
-    if (status !== "idle" || logs.length > 0) {
-      saveState();
-    }
-  }, [status, currentBatch, stats, logs, saveState]);
-
-  const addLog = useCallback((message: string, type: LogEntry["type"] = "info") => {
-    setLogs((prev) => [
-      { timestamp: new Date().toISOString(), message, type },
-      ...prev.slice(0, 99), // Keep last 100 logs
-    ]);
-  }, []);
-
-  const calculateEstimatedTime = useCallback((completedBatches: number, totalBatches: number, avgTimePerBatch: number) => {
-    const remainingBatches = totalBatches - completedBatches;
-    const remainingMs = remainingBatches * avgTimePerBatch;
-    
-    if (remainingMs < 60000) {
-      return `${Math.ceil(remainingMs / 1000)}s`;
-    }
-    const minutes = Math.floor(remainingMs / 60000);
-    const seconds = Math.ceil((remainingMs % 60000) / 1000);
-    return `${minutes}m ${seconds}s`;
-  }, []);
-
-  const loadCollaborators = async () => {
-    setStatus("loading");
-    addLog("Carregando lista de colaboradores...", "info");
-
+  // Fetch current job status
+  const fetchJobStatus = useCallback(async () => {
     try {
-      const response = await fetch(COLLABORATORS_URL);
-      if (!response.ok) throw new Error("Failed to fetch collaborators");
-      
-      const data: Collaborator[] = await response.json();
-      setCollaborators(data);
-      setTotalBatches(Math.ceil(data.length / BATCH_SIZE));
-      addLog(`${data.length} colaboradores carregados (${Math.ceil(data.length / BATCH_SIZE)} lotes)`, "success");
-      setStatus("idle");
-      return data;
-    } catch (error) {
-      addLog(`Erro ao carregar colaboradores: ${error}`, "error");
-      setStatus("error");
-      return [];
-    }
-  };
-
-  const processBatch = async (batch: Collaborator[], batchIndex: number): Promise<{ results: Record<string, ExtractedSkill[]>; processedCount: number } | null> => {
-    try {
-      const { data, error } = await supabase.functions.invoke("batch-extract-skills", {
-        body: { collaborators: batch, tenantName },
+      const { data, error } = await supabase.functions.invoke('background-batch-processing', {
+        body: { action: 'status', tenantName },
       });
-
       if (error) throw error;
-      return data;
+      setJob(data.job || null);
     } catch (error) {
-      addLog(`Erro no lote ${batchIndex + 1}: ${error}`, "error");
-      return null;
+      console.error('Error fetching job status:', error);
     }
-  };
+  }, [tenantName]);
 
-  const saveResultsToDatabase = async (results: Record<string, ExtractedSkill[]>, batch: Collaborator[]) => {
-    let skillsCreated = 0;
-    let usersCreated = 0;
-    let totalSkillsExtracted = 0;
+  // Initial fetch
+  useEffect(() => {
+    fetchJobStatus();
+  }, [fetchJobStatus]);
 
-    for (const collaborator of batch) {
-      const skills = results[collaborator.user_name];
-      if (!skills || skills.length === 0) continue;
-
-      totalSkillsExtracted += skills.length;
-
-      // Upsert tenant_user
-      const { data: existingUser } = await supabase
-        .from("tenant_users")
-        .select("id")
-        .eq("user_name", collaborator.user_name)
-        .eq("tenant_name", tenantName)
-        .single();
-
-      if (!existingUser) {
-        const { error: userError } = await supabase.from("tenant_users").insert({
-          user_name: collaborator.user_name,
-          full_name: collaborator.employee_name,
-          email: `${collaborator.user_name}@senior.com.br`,
-          tenant_name: tenantName,
-        });
-        if (!userError) usersCreated++;
-      }
-
-      // Process each skill
-      for (const skill of skills) {
-        // Upsert skill
-        const { data: existingSkill } = await supabase
-          .from("skills")
-          .select("id")
-          .eq("name", skill.name)
-          .eq("tenant_name", tenantName)
-          .single();
-
-        let skillId: string;
-
-        if (existingSkill) {
-          skillId = existingSkill.id;
-        } else {
-          const { data: newSkill, error: skillError } = await supabase
-            .from("skills")
-            .insert({
-              name: skill.name,
-              tenant_name: tenantName,
-              validated: false,
-            })
-            .select("id")
-            .single();
-
-          if (skillError || !newSkill) continue;
-          skillId = newSkill.id;
-          skillsCreated++;
+  // Subscribe to realtime updates
+  useEffect(() => {
+    const channel = supabase
+      .channel('batch_jobs_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'batch_jobs',
+          filter: `tenant_name=eq.${tenantName}`,
+        },
+        (payload) => {
+          console.log('Realtime update:', payload);
+          if (payload.new) {
+            setJob(payload.new as BatchJob);
+          }
         }
+      )
+      .subscribe();
 
-        // Upsert user_skill
-        const { data: existingUserSkill } = await supabase
-          .from("user_skills")
-          .select("id")
-          .eq("user_id", collaborator.user_name)
-          .eq("skill_id", skillId)
-          .eq("tenant_name", tenantName)
-          .single();
-
-        if (!existingUserSkill) {
-          await supabase.from("user_skills").insert({
-            user_id: collaborator.user_name,
-            skill_id: skillId,
-            tenant_name: tenantName,
-            proficiency: skill.proficiency,
-          });
-        }
-      }
-    }
-
-    return { skillsCreated, usersCreated, totalSkillsExtracted };
-  };
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [tenantName]);
 
   const startProcessing = async () => {
-    if (isProcessingRef.current) return;
-    isProcessingRef.current = true;
-
-    let data = collaborators;
-    
-    if (data.length === 0) {
-      data = await loadCollaborators();
-      if (data.length === 0) {
-        isProcessingRef.current = false;
-        return;
-      }
-    }
-
-    setStatus("running");
-    setStartTime(new Date());
-    isPausedRef.current = false;
-    isCancelledRef.current = false;
-    setBatchTimes([]);
-    setStats({
-      collaboratorsProcessed: 0,
-      skillsExtracted: 0,
-      skillsCreated: 0,
-      usersCreated: 0,
-      errors: 0,
-    });
-    setProcessedUserNames([]);
-
-    addLog("Iniciando processamento em lote...", "info");
-
-    const batches: Collaborator[][] = [];
-    for (let i = 0; i < data.length; i += BATCH_SIZE) {
-      batches.push(data.slice(i, i + BATCH_SIZE));
-    }
-
-    for (let i = currentBatch; i < batches.length; i++) {
-      if (isCancelledRef.current) {
-        addLog("Processamento cancelado pelo usuário", "warning");
-        setStatus("idle");
-        isProcessingRef.current = false;
-        return;
-      }
-
-      while (isPausedRef.current) {
-        await new Promise((resolve) => setTimeout(resolve, 100));
-        if (isCancelledRef.current) {
-          setStatus("idle");
-          isProcessingRef.current = false;
-          return;
-        }
-      }
-
-      const batchStartTime = Date.now();
-      const batch = batches[i];
-      
-      addLog(`Processando lote ${i + 1}/${batches.length} (${batch.length} colaboradores)...`, "info");
-      setCurrentBatch(i);
-
-      const result = await processBatch(batch, i);
-
-      if (result) {
-        const dbResults = await saveResultsToDatabase(result.results, batch);
-        
-        // Track processed users
-        const batchUserNames = batch.map(c => c.user_name);
-        setProcessedUserNames(prev => [...prev, ...batchUserNames]);
-
-        setStats((prev) => ({
-          collaboratorsProcessed: prev.collaboratorsProcessed + batch.length,
-          skillsExtracted: prev.skillsExtracted + dbResults.totalSkillsExtracted,
-          skillsCreated: prev.skillsCreated + dbResults.skillsCreated,
-          usersCreated: prev.usersCreated + dbResults.usersCreated,
-          errors: prev.errors,
-        }));
-
-        addLog(
-          `Lote ${i + 1} concluído: ${dbResults.totalSkillsExtracted} skills extraídas, ${dbResults.skillsCreated} novas skills criadas`,
-          "success"
-        );
-      } else {
-        setStats((prev) => ({
-          ...prev,
-          collaboratorsProcessed: prev.collaboratorsProcessed + batch.length,
-          errors: prev.errors + 1,
-        }));
-      }
-
-      const batchTime = Date.now() - batchStartTime;
-      setBatchTimes((prev) => {
-        const newTimes = [...prev, batchTime].slice(-10); // Keep last 10 times
-        const avgTime = newTimes.reduce((a, b) => a + b, 0) / newTimes.length;
-        setEstimatedTimeRemaining(calculateEstimatedTime(i + 1, batches.length, avgTime + DELAY_BETWEEN_BATCHES));
-        return newTimes;
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('background-batch-processing', {
+        body: { action: 'start', tenantName },
       });
-
-      // Delay between batches to avoid rate limiting
-      if (i < batches.length - 1) {
-        await new Promise((resolve) => setTimeout(resolve, DELAY_BETWEEN_BATCHES));
+      
+      if (error) throw error;
+      
+      if (data.error) {
+        toast.error(data.error);
+        if (data.jobId) {
+          await fetchJobStatus();
+        }
+        return;
       }
-    }
-
-    setStatus("completed");
-    setCurrentBatch(batches.length);
-    addLog("Processamento concluído!", "success");
-    isProcessingRef.current = false;
-
-    // Clear saved state on completion
-    sessionStorage.removeItem(BATCH_PROCESSING_STATE_KEY);
-  };
-
-  const pauseProcessing = () => {
-    isPausedRef.current = true;
-    setStatus("paused");
-    addLog("Processamento pausado", "warning");
-  };
-
-  const resumeProcessing = () => {
-    isPausedRef.current = false;
-    setStatus("running");
-    addLog("Processamento retomado", "info");
-    
-    // If not already processing, restart from current batch
-    if (!isProcessingRef.current) {
-      startProcessing();
+      
+      toast.success("Processamento iniciado em background!");
+      await fetchJobStatus();
+    } catch (error) {
+      console.error('Error starting processing:', error);
+      toast.error('Erro ao iniciar processamento');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const cancelProcessing = () => {
-    isCancelledRef.current = true;
-    isPausedRef.current = false;
-    setStatus("idle");
-    setCurrentBatch(0);
-    addLog("Processamento cancelado", "warning");
-    isProcessingRef.current = false;
-    sessionStorage.removeItem(BATCH_PROCESSING_STATE_KEY);
+  const pauseProcessing = async () => {
+    if (!job) return;
+    try {
+      await supabase.functions.invoke('background-batch-processing', {
+        body: { action: 'pause', jobId: job.id },
+      });
+      toast.info("Processamento pausado");
+    } catch (error) {
+      console.error('Error pausing:', error);
+      toast.error('Erro ao pausar');
+    }
   };
 
-  const resetProcessing = () => {
-    setStatus("idle");
-    setCurrentBatch(0);
-    setStats({
-      collaboratorsProcessed: 0,
-      skillsExtracted: 0,
-      skillsCreated: 0,
-      usersCreated: 0,
-      errors: 0,
-    });
-    setLogs([]);
-    setEstimatedTimeRemaining("");
-    setBatchTimes([]);
-    setProcessedUserNames([]);
-    isProcessingRef.current = false;
-    sessionStorage.removeItem(BATCH_PROCESSING_STATE_KEY);
+  const resumeProcessing = async () => {
+    if (!job) return;
+    try {
+      await supabase.functions.invoke('background-batch-processing', {
+        body: { action: 'resume', jobId: job.id },
+      });
+      toast.success("Processamento retomado");
+    } catch (error) {
+      console.error('Error resuming:', error);
+      toast.error('Erro ao retomar');
+    }
   };
 
-  const progressPercent = totalBatches > 0 ? ((currentBatch + (status === "completed" ? 0 : 0)) / totalBatches) * 100 : 0;
+  const cancelProcessing = async () => {
+    if (!job) return;
+    try {
+      await supabase.functions.invoke('background-batch-processing', {
+        body: { action: 'cancel', jobId: job.id },
+      });
+      toast.warning("Processamento cancelado");
+    } catch (error) {
+      console.error('Error cancelling:', error);
+      toast.error('Erro ao cancelar');
+    }
+  };
 
-  const getLogIcon = (type: LogEntry["type"]) => {
+  const resetView = () => {
+    setJob(null);
+  };
+
+  const progressPercent = job && job.total_batches > 0 
+    ? ((job.current_batch + (job.status === "completed" ? 0 : 0)) / job.total_batches) * 100 
+    : 0;
+
+  const getLogIcon = (type: string) => {
     switch (type) {
       case "success":
         return <CheckCircle className="h-4 w-4 text-green-500" />;
@@ -476,6 +182,24 @@ const BatchProcessing = () => {
         return <Clock className="h-4 w-4 text-yellow-500" />;
       default:
         return <Zap className="h-4 w-4 text-blue-500" />;
+    }
+  };
+
+  const getStatusBadge = () => {
+    if (!job) return null;
+    switch (job.status) {
+      case 'running':
+        return <Badge className="bg-blue-500 animate-pulse">Processando...</Badge>;
+      case 'paused':
+        return <Badge variant="secondary">Pausado</Badge>;
+      case 'completed':
+        return <Badge className="bg-green-500">Concluído</Badge>;
+      case 'cancelled':
+        return <Badge variant="destructive">Cancelado</Badge>;
+      case 'error':
+        return <Badge variant="destructive">Erro</Badge>;
+      default:
+        return <Badge variant="outline">{job.status}</Badge>;
     }
   };
 
@@ -501,6 +225,10 @@ const BatchProcessing = () => {
     );
   }
 
+  const canStart = !job || ['completed', 'cancelled', 'error'].includes(job.status);
+  const isRunning = job?.status === 'running';
+  const isPaused = job?.status === 'paused';
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <PageHeader title="Processamento em Lote" />
@@ -509,39 +237,37 @@ const BatchProcessing = () => {
         {/* Control Panel */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Database className="h-5 w-5" />
-              Extração de Habilidades em Lote
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <Database className="h-5 w-5" />
+                Extração de Habilidades em Lote
+              </CardTitle>
+              {getStatusBadge()}
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-muted-foreground">
-              Processa o arquivo de colaboradores e extrai habilidades usando IA, salvando no banco de dados.
-              O processamento é feito em lotes de {BATCH_SIZE} colaboradores para otimizar performance e custo.
+              O processamento é executado <strong>em segundo plano no servidor</strong>. 
+              Você pode navegar para outras páginas ou até fechar o navegador - o processamento continuará.
             </p>
 
-            {status === "paused" && currentBatch > 0 && (
+            {isPaused && job && (
               <div className="p-3 bg-feedback-warning/10 border border-feedback-warning/20 rounded-big">
                 <p className="text-small text-foreground">
-                  Processamento pausado no lote {currentBatch + 1}/{totalBatches}. Clique em "Continuar" para retomar de onde parou.
+                  Processamento pausado no lote {job.current_batch + 1}/{job.total_batches}. 
+                  Clique em "Continuar" para retomar.
                 </p>
               </div>
             )}
 
-            <div className="flex gap-2">
-              {status === "idle" && (
-                <Button onClick={startProcessing} className="gap-2">
-                  <Play className="h-4 w-4" />
+            <div className="flex gap-2 flex-wrap">
+              {canStart && (
+                <Button onClick={startProcessing} disabled={isLoading} className="gap-2">
+                  {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
                   Iniciar Processamento
                 </Button>
               )}
-              {status === "loading" && (
-                <Button disabled className="gap-2">
-                  <Clock className="h-4 w-4 animate-spin" />
-                  Carregando...
-                </Button>
-              )}
-              {status === "running" && (
+              {isRunning && (
                 <>
                   <Button onClick={pauseProcessing} variant="outline" className="gap-2">
                     <Pause className="h-4 w-4" />
@@ -553,7 +279,7 @@ const BatchProcessing = () => {
                   </Button>
                 </>
               )}
-              {status === "paused" && (
+              {isPaused && (
                 <>
                   <Button onClick={resumeProcessing} className="gap-2">
                     <Play className="h-4 w-4" />
@@ -565,9 +291,13 @@ const BatchProcessing = () => {
                   </Button>
                 </>
               )}
-              {(status === "completed" || status === "error") && (
-                <Button onClick={resetProcessing} variant="outline" className="gap-2">
-                  Reiniciar
+              <Button onClick={fetchJobStatus} variant="ghost" className="gap-2">
+                <RefreshCw className="h-4 w-4" />
+                Atualizar
+              </Button>
+              {job && ['completed', 'cancelled', 'error'].includes(job.status) && (
+                <Button onClick={resetView} variant="outline" className="gap-2">
+                  Limpar
                 </Button>
               )}
             </div>
@@ -575,107 +305,110 @@ const BatchProcessing = () => {
         </Card>
 
         {/* Progress Section */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Progresso</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>
-                  Lote {Math.min(currentBatch + 1, totalBatches)} de {totalBatches || "?"}
-                </span>
-                <span>{progressPercent.toFixed(1)}%</span>
+        {job && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Progresso</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>
+                    Lote {Math.min(job.current_batch + 1, job.total_batches)} de {job.total_batches || "?"}
+                  </span>
+                  <span>{job.status === "completed" ? "100" : progressPercent.toFixed(1)}%</span>
+                </div>
+                <Progress value={job.status === "completed" ? 100 : progressPercent} className="h-3" />
               </div>
-              <Progress value={status === "completed" ? 100 : progressPercent} className="h-3" />
-            </div>
 
-            {estimatedTimeRemaining && status === "running" && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Clock className="h-4 w-4" />
-                <span>Tempo estimado restante: {estimatedTimeRemaining}</span>
-              </div>
-            )}
+              {job.started_at && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Clock className="h-4 w-4" />
+                  <span>Iniciado: {new Date(job.started_at).toLocaleString()}</span>
+                </div>
+              )}
 
-            {status === "completed" && (
-              <Badge variant="default" className="bg-green-500">
-                Processamento Concluído!
-              </Badge>
-            )}
-          </CardContent>
-        </Card>
+              {job.completed_at && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  <span>Concluído: {new Date(job.completed_at).toLocaleString()}</span>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Statistics */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-2">
-                <Users className="h-5 w-5 text-blue-500" />
-                <div>
-                  <p className="text-2xl font-bold">{stats.collaboratorsProcessed}</p>
-                  <p className="text-xs text-muted-foreground">Colaboradores</p>
+        {job && (
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-2">
+                  <Users className="h-5 w-5 text-blue-500" />
+                  <div>
+                    <p className="text-2xl font-bold">{job.processed_collaborators}</p>
+                    <p className="text-xs text-muted-foreground">Colaboradores</p>
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-2">
-                <Zap className="h-5 w-5 text-purple-500" />
-                <div>
-                  <p className="text-2xl font-bold">{stats.skillsExtracted}</p>
-                  <p className="text-xs text-muted-foreground">Skills Extraídas</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-2">
+                  <Zap className="h-5 w-5 text-purple-500" />
+                  <div>
+                    <p className="text-2xl font-bold">{job.skills_extracted}</p>
+                    <p className="text-xs text-muted-foreground">Skills Extraídas</p>
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-2">
-                <Database className="h-5 w-5 text-green-500" />
-                <div>
-                  <p className="text-2xl font-bold">{stats.skillsCreated}</p>
-                  <p className="text-xs text-muted-foreground">Skills Criadas</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-2">
+                  <Database className="h-5 w-5 text-green-500" />
+                  <div>
+                    <p className="text-2xl font-bold">{job.skills_created}</p>
+                    <p className="text-xs text-muted-foreground">Skills Criadas</p>
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-2">
-                <Users className="h-5 w-5 text-teal-500" />
-                <div>
-                  <p className="text-2xl font-bold">{stats.usersCreated}</p>
-                  <p className="text-xs text-muted-foreground">Usuários Criados</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-2">
+                  <Users className="h-5 w-5 text-teal-500" />
+                  <div>
+                    <p className="text-2xl font-bold">{job.users_created}</p>
+                    <p className="text-xs text-muted-foreground">Usuários Criados</p>
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-2">
-                <XCircle className="h-5 w-5 text-red-500" />
-                <div>
-                  <p className="text-2xl font-bold">{stats.errors}</p>
-                  <p className="text-xs text-muted-foreground">Erros</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-2">
+                  <XCircle className="h-5 w-5 text-red-500" />
+                  <div>
+                    <p className="text-2xl font-bold">{job.errors}</p>
+                    <p className="text-xs text-muted-foreground">Erros</p>
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* Activity Log */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Log de Atividade</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ScrollArea className="h-64 w-full rounded border p-4">
-              {logs.length === 0 ? (
-                <p className="text-muted-foreground text-sm">Nenhuma atividade registrada</p>
-              ) : (
+        {job && job.logs && job.logs.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Log de Atividade</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-64 w-full rounded border p-4">
                 <div className="space-y-2">
-                  {logs.map((log, index) => (
+                  {job.logs.map((log, index) => (
                     <div key={index} className="flex items-start gap-2 text-sm">
                       {getLogIcon(log.type)}
                       <span className="text-muted-foreground">
@@ -685,10 +418,22 @@ const BatchProcessing = () => {
                     </div>
                   ))}
                 </div>
-              )}
-            </ScrollArea>
-          </CardContent>
-        </Card>
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        )}
+
+        {!job && (
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-center py-8 text-muted-foreground">
+                <Database className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>Nenhum processamento em andamento.</p>
+                <p className="text-sm">Clique em "Iniciar Processamento" para começar.</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </main>
 
       <PageFooter 
