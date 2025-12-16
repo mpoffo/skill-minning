@@ -5,7 +5,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const COLLABORATORS_URL = "https://gist.githubusercontent.com/mpoffo/44443a4a18d4705a7f219ca7baa0bc5a/raw/afb26ad8fcd9e85654d29151358f9f5c75fe1954/colaboradores.json";
+const COLLABORATORS_URL = "https://gist.githubusercontent.com/mpoffo/76cb8872843cfd03ff3b44c29ba1f485/raw/69460f00cfa5177ab5ddddcb067e807885b54808/gistfile1.txt";
 
 interface Collaborator {
   employee_id: string;
