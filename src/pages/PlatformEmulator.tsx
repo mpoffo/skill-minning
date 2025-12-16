@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,6 +7,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { User, Search, Database } from "lucide-react";
+
+const CACHE_KEY = "platform-emulator-cache";
+
+interface CachedData {
+  loginUsername: string;
+  loginPassword: string;
+  selectedEnv: string;
+  username: string;
+  fullName: string;
+  email: string;
+  tenantName: string;
+  accessToken: string;
+}
 
 const defaultToken = {
   scope: "browser+device_web",
@@ -47,6 +60,41 @@ export default function PlatformEmulator() {
   const [tenantName, setTenantName] = useState(defaultToken.tenantName);
   const [accessToken, setAccessToken] = useState(defaultToken.access_token);
   const servicesUrl = environments[selectedEnv].url;
+
+  // Load cached data on mount
+  useEffect(() => {
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (cached) {
+      try {
+        const data: CachedData = JSON.parse(cached);
+        setLoginUsername(data.loginUsername || "");
+        setLoginPassword(data.loginPassword || "");
+        setSelectedEnv((data.selectedEnv as keyof typeof environments) || "leaf");
+        setUsername(data.username || "");
+        setFullName(data.fullName || "");
+        setEmail(data.email || "");
+        setTenantName(data.tenantName || "");
+        setAccessToken(data.accessToken || "");
+      } catch (e) {
+        console.error("Error loading cached data:", e);
+      }
+    }
+  }, []);
+
+  // Save data to cache whenever it changes
+  useEffect(() => {
+    const data: CachedData = {
+      loginUsername,
+      loginPassword,
+      selectedEnv,
+      username,
+      fullName,
+      email,
+      tenantName,
+      accessToken,
+    };
+    localStorage.setItem(CACHE_KEY, JSON.stringify(data));
+  }, [loginUsername, loginPassword, selectedEnv, username, fullName, email, tenantName, accessToken]);
 
   const handleLogin = async () => {
     if (!loginUsername || !loginPassword) {
