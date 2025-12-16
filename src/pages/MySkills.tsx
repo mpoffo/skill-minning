@@ -217,8 +217,6 @@ export default function MySkills() {
         userName={fullName || "Usuário"}
         resource={MY_SKILLS_RESOURCE}
         authorized={hasAccess === true}
-        permission={permission}
-        onPermissionChange={setPermission}
       />
     </div>
   );

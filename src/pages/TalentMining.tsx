@@ -528,8 +528,6 @@ export default function TalentMining() {
         userName={userName || ""}
         resource="res://senior.com.br/hcm/competencymanagement/entities/competencyskillproficiencytable"
         authorized={hasAccess === true}
-        permission={permission}
-        onPermissionChange={setPermission}
       />
     </div>
   );
