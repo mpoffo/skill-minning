@@ -95,6 +95,8 @@ serve(async (req) => {
         );
       }
 
+      console.log(`CheckAccess: resource=${resource}, permission=${permission}`);
+
       const checkAccessResponse = await fetch(`${servicesUrl}platform/authorization/queries/checkAccess`, {
         method: 'POST',
         headers: {
@@ -102,8 +104,12 @@ serve(async (req) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          resource,
-          action: permission,
+          permissions: [
+            {
+              resource,
+              action: permission,
+            }
+          ],
         }),
       });
 
@@ -119,11 +125,17 @@ serve(async (req) => {
       }
 
       const accessData = await checkAccessResponse.json();
-      console.log('CheckAccess successful:', accessData);
+      console.log('CheckAccess successful:', JSON.stringify(accessData));
+
+      // Check for various response formats from Senior API
+      const hasAccess = accessData.ok === true || 
+                       accessData.allowed === true || 
+                       accessData.authorized === true ||
+                       (Array.isArray(accessData.permissions) && accessData.permissions.some((p: any) => p.allowed === true));
 
       return new Response(
         JSON.stringify({ 
-          hasAccess: accessData.ok === true || accessData.allowed === true || accessData.authorized === true,
+          hasAccess,
           raw: accessData 
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
