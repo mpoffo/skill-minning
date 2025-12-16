@@ -1,0 +1,297 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+interface RequiredSkill {
+  name: string;
+  proficiency: number;
+}
+
+interface UserSkillMatch {
+  skillName: string;
+  requiredProficiency: number;
+  userProficiency: number;
+  similarity: number;
+}
+
+interface RankedUser {
+  userId: string;
+  userName: string;
+  fullName: string;
+  matchScore: number;
+  matchedSkills: UserSkillMatch[];
+}
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const { tenantName, requiredSkills } = await req.json();
+
+    if (!tenantName || !requiredSkills || requiredSkills.length === 0) {
+      return new Response(
+        JSON.stringify({ error: "tenantName and requiredSkills are required" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log(`Starting semantic talent search for tenant: ${tenantName}`);
+    console.log(`Required skills: ${requiredSkills.map((s: RequiredSkill) => s.name).join(", ")}`);
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Get all users for the tenant
+    const { data: users, error: usersError } = await supabase
+      .from("tenant_users")
+      .select("id, user_name, full_name")
+      .eq("tenant_name", tenantName);
+
+    if (usersError) throw usersError;
+
+    if (!users || users.length === 0) {
+      console.log("No users found for tenant");
+      return new Response(
+        JSON.stringify({ rankedUsers: [] }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log(`Found ${users.length} users`);
+
+    // Get all skills for the tenant
+    const { data: allSkills, error: skillsError } = await supabase
+      .from("skills")
+      .select("id, name")
+      .eq("tenant_name", tenantName);
+
+    if (skillsError) throw skillsError;
+
+    console.log(`Found ${allSkills?.length || 0} skills in tenant`);
+
+    if (!allSkills || allSkills.length === 0) {
+      return new Response(
+        JSON.stringify({ rankedUsers: [] }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Use AI to calculate semantic similarity between required skills and existing skills
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) {
+      throw new Error("LOVABLE_API_KEY is not configured");
+    }
+
+    const existingSkillNames = allSkills.map((s) => s.name);
+    const requiredSkillNames = requiredSkills.map((s: RequiredSkill) => s.name);
+
+    // Build similarity matrix using AI
+    const similarityPrompt = `Você é um especialista em recursos humanos. Analise a similaridade semântica entre habilidades requeridas e habilidades existentes.
+
+HABILIDADES REQUERIDAS:
+${requiredSkillNames.map((n: string, i: number) => `${i + 1}. ${n}`).join("\n")}
+
+HABILIDADES EXISTENTES NO BANCO:
+${existingSkillNames.map((n: string, i: number) => `${i + 1}. ${n}`).join("\n")}
+
+Para cada habilidade requerida, identifique as habilidades existentes que são similares (mesmo conceito, sinônimos, variações, ou relacionadas diretamente).
+Retorne APENAS um JSON no formato:
+{
+  "matches": [
+    {
+      "required": "nome da habilidade requerida",
+      "matches": [
+        { "existing": "nome exato da habilidade existente", "similarity": 0.95 }
+      ]
+    }
+  ]
+}
+
+REGRAS:
+- similarity deve ser entre 0 e 1 (1 = idêntico ou sinônimo perfeito, 0.8+ = muito similar, 0.5-0.8 = relacionado)
+- Inclua apenas matches com similarity >= 0.5
+- Use os nomes EXATOS das habilidades existentes
+- Considere sinônimos em português e inglês (ex: "Liderança" e "Leadership" = 1.0)
+- Considere variações (ex: "Excel" e "Microsoft Excel" = 0.95)
+- Considere habilidades relacionadas (ex: "Python" e "Programação" = 0.7)`;
+
+    console.log("Calling AI for semantic similarity...");
+
+    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          { role: "user", content: similarityPrompt },
+        ],
+      }),
+    });
+
+    if (!aiResponse.ok) {
+      const errorText = await aiResponse.text();
+      console.error("AI Gateway error:", aiResponse.status, errorText);
+      
+      if (aiResponse.status === 429) {
+        return new Response(
+          JSON.stringify({ error: "Rate limit exceeded. Please try again later." }),
+          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      if (aiResponse.status === 402) {
+        return new Response(
+          JSON.stringify({ error: "Payment required. Please add credits." }),
+          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
+      throw new Error(`AI Gateway error: ${aiResponse.status}`);
+    }
+
+    const aiData = await aiResponse.json();
+    const aiContent = aiData.choices?.[0]?.message?.content || "{}";
+
+    console.log("AI response received, parsing...");
+
+    // Parse similarity matrix
+    let similarityMatrix: Record<string, Array<{ skillId: string; skillName: string; similarity: number }>> = {};
+    
+    try {
+      const jsonMatch = aiContent.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        
+        for (const match of parsed.matches || []) {
+          const requiredName = match.required?.toLowerCase();
+          if (!requiredName) continue;
+          
+          similarityMatrix[requiredName] = [];
+          
+          for (const m of match.matches || []) {
+            const existingSkill = allSkills.find(
+              (s) => s.name.toLowerCase() === m.existing?.toLowerCase()
+            );
+            if (existingSkill && m.similarity >= 0.5) {
+              similarityMatrix[requiredName].push({
+                skillId: existingSkill.id,
+                skillName: existingSkill.name,
+                similarity: m.similarity,
+              });
+            }
+          }
+        }
+      }
+    } catch (parseError) {
+      console.error("Error parsing AI similarity response:", parseError);
+    }
+
+    console.log("Similarity matrix built:", Object.keys(similarityMatrix).length, "required skills mapped");
+
+    // Get all user_skills
+    const { data: userSkills, error: userSkillsError } = await supabase
+      .from("user_skills")
+      .select("user_id, skill_id, proficiency")
+      .eq("tenant_name", tenantName);
+
+    if (userSkillsError) throw userSkillsError;
+
+    console.log(`Found ${userSkills?.length || 0} user_skills records`);
+
+    // Build user skill map: userId -> skillId -> proficiency
+    const userSkillMap: Record<string, Record<string, number>> = {};
+    (userSkills || []).forEach((us) => {
+      if (!userSkillMap[us.user_id]) {
+        userSkillMap[us.user_id] = {};
+      }
+      userSkillMap[us.user_id][us.skill_id] = us.proficiency;
+    });
+
+    // Calculate scores for each user
+    const rankedUsers: RankedUser[] = [];
+
+    for (const user of users) {
+      const userSkillData = userSkillMap[user.id] || {};
+      const matchedSkills: UserSkillMatch[] = [];
+      let totalWeightedScore = 0;
+      let maxPossibleScore = 0;
+
+      for (const required of requiredSkills as RequiredSkill[]) {
+        const requiredNameLower = required.name.toLowerCase();
+        const matchingSkills = similarityMatrix[requiredNameLower] || [];
+        
+        // Find the best matching skill the user has
+        let bestMatch: { skillName: string; userProficiency: number; similarity: number } | null = null;
+        
+        for (const match of matchingSkills) {
+          const userProficiency = userSkillData[match.skillId];
+          if (userProficiency !== undefined) {
+            if (!bestMatch || 
+                (match.similarity * userProficiency) > (bestMatch.similarity * bestMatch.userProficiency)) {
+              bestMatch = {
+                skillName: match.skillName,
+                userProficiency,
+                similarity: match.similarity,
+              };
+            }
+          }
+        }
+
+        // Weight by required proficiency
+        const weight = required.proficiency;
+        maxPossibleScore += weight * 5; // Max 5 stars
+
+        if (bestMatch) {
+          matchedSkills.push({
+            skillName: bestMatch.skillName,
+            requiredProficiency: required.proficiency,
+            userProficiency: bestMatch.userProficiency,
+            similarity: bestMatch.similarity,
+          });
+          
+          // Score = similarity * userProficiency * weight
+          // Higher proficiency and higher similarity = higher score
+          totalWeightedScore += bestMatch.similarity * bestMatch.userProficiency * weight;
+        }
+      }
+
+      // Only include users who have at least one matching skill
+      if (matchedSkills.length > 0 && maxPossibleScore > 0) {
+        const matchScore = (totalWeightedScore / maxPossibleScore) * 100;
+        
+        rankedUsers.push({
+          userId: user.id,
+          userName: user.user_name,
+          fullName: user.full_name || user.user_name,
+          matchScore,
+          matchedSkills,
+        });
+      }
+    }
+
+    // Sort by match score descending
+    rankedUsers.sort((a, b) => b.matchScore - a.matchScore);
+
+    console.log(`Returning ${rankedUsers.length} ranked users`);
+
+    return new Response(
+      JSON.stringify({ rankedUsers: rankedUsers.slice(0, 20) }), // Top 20
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  } catch (error) {
+    console.error("Error in rank-talents-semantic:", error);
+    return new Response(
+      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+});

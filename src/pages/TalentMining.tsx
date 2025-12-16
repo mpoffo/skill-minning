@@ -4,11 +4,11 @@ import { PageFooter } from "@/components/PageFooter";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { StarRating } from "@/components/ui/star-rating";
+import { RequiredSkillCard } from "@/components/RequiredSkillCard";
 import { usePlatform } from "@/contexts/PlatformContext";
 import { supabase } from "@/integrations/supabase/client";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faSearch, faBriefcase, faUsers, faSpinner, faTrash, faTrophy, faMedal, faAward } from "@fortawesome/free-solid-svg-icons";
+import { faSearch, faBriefcase, faUsers, faSpinner, faTrophy, faMedal, faAward, faPlus } from "@fortawesome/free-solid-svg-icons";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -33,6 +33,7 @@ interface RankedUser {
     skillName: string;
     requiredProficiency: number;
     userProficiency: number;
+    similarity: number;
   }[];
 }
 
@@ -49,6 +50,10 @@ export default function TalentMining() {
   // Required skills
   const [requiredSkills, setRequiredSkills] = useState<RequiredSkill[]>([]);
   const [isLoadingSkills, setIsLoadingSkills] = useState(false);
+
+  // Add skill manually
+  const [newSkillName, setNewSkillName] = useState("");
+  const [isAddingSkill, setIsAddingSkill] = useState(false);
 
   // Talent ranking
   const [rankedUsers, setRankedUsers] = useState<RankedUser[]>([]);
@@ -133,7 +138,27 @@ export default function TalentMining() {
     setRequiredSkills((prev) => prev.filter((skill) => skill.name !== skillName));
   };
 
-  // Mine talents
+  // Add skill manually
+  const handleAddSkill = () => {
+    const trimmedName = newSkillName.trim();
+    if (!trimmedName) return;
+
+    // Check if skill already exists
+    if (requiredSkills.some((s) => s.name.toLowerCase() === trimmedName.toLowerCase())) {
+      toast({
+        title: "Habilidade já existe",
+        description: "Esta habilidade já está na lista",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setRequiredSkills((prev) => [...prev, { name: trimmedName, proficiency: 3 }]);
+    setNewSkillName("");
+    setIsAddingSkill(false);
+  };
+
+  // Mine talents with semantic search
   const handleMineTalents = async () => {
     if (!tenantName || requiredSkills.length === 0) return;
 
@@ -141,7 +166,7 @@ export default function TalentMining() {
     setRankedUsers([]);
 
     try {
-      const { data, error } = await supabase.functions.invoke("rank-talents", {
+      const { data, error } = await supabase.functions.invoke("rank-talents-semantic", {
         body: {
           tenantName,
           requiredSkills: requiredSkills.map((s) => ({
@@ -158,7 +183,7 @@ export default function TalentMining() {
       if ((data.rankedUsers || []).length === 0) {
         toast({
           title: "Nenhum resultado",
-          description: "Não foram encontrados colaboradores com as habilidades desejadas",
+          description: "Não foram encontrados colaboradores com habilidades similares",
         });
       }
     } catch (error) {
@@ -269,51 +294,99 @@ export default function TalentMining() {
           </Card>
 
           {/* Required Skills */}
-          {(isLoadingSkills || requiredSkills.length > 0) && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Habilidades Requeridas</CardTitle>
-                <CardDescription>
-                  Ajuste o nível de proficiência esperado para cada habilidade
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {isLoadingSkills ? (
-                  <div className="flex items-center justify-center py-xlarge">
-                    <FontAwesomeIcon icon={faSpinner} spin className="text-primary text-2xl mr-sml" />
-                    <span className="text-label text-muted-foreground">
-                      Identificando habilidades via IA...
-                    </span>
-                  </div>
-                ) : (
-                  <div className="space-y-sml">
-                    {requiredSkills.map((skill) => (
-                      <div
-                        key={skill.name}
-                        className="flex items-center justify-between p-default bg-grayscale-5 rounded-big"
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Habilidades Requeridas</CardTitle>
+                  <CardDescription>
+                    Ajuste o nível de proficiência esperado para cada habilidade
+                  </CardDescription>
+                </div>
+                <span className="text-small text-muted-foreground">
+                  {requiredSkills.length} habilidade{requiredSkills.length !== 1 ? "s" : ""}
+                </span>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {isLoadingSkills ? (
+                <div className="flex items-center justify-center py-xlarge">
+                  <FontAwesomeIcon icon={faSpinner} spin className="text-primary text-2xl mr-sml" />
+                  <span className="text-label text-muted-foreground">
+                    Identificando habilidades via IA...
+                  </span>
+                </div>
+              ) : (
+                <div className="space-y-medium">
+                  {/* Add skill input */}
+                  <div className="flex gap-sml">
+                    {isAddingSkill ? (
+                      <>
+                        <Input
+                          placeholder="Nome da habilidade..."
+                          value={newSkillName}
+                          onChange={(e) => setNewSkillName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleAddSkill();
+                            if (e.key === "Escape") {
+                              setIsAddingSkill(false);
+                              setNewSkillName("");
+                            }
+                          }}
+                          autoFocus
+                          className="flex-1"
+                        />
+                        <Button onClick={handleAddSkill} disabled={!newSkillName.trim()}>
+                          Adicionar
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setIsAddingSkill(false);
+                            setNewSkillName("");
+                          }}
+                        >
+                          Cancelar
+                        </Button>
+                      </>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        onClick={() => setIsAddingSkill(true)}
+                        className="gap-sml"
                       >
-                        <span className="text-label text-foreground flex-1">{skill.name}</span>
-                        <div className="flex items-center gap-medium">
-                          <StarRating
-                            value={skill.proficiency}
-                            onChange={(value) => updateSkillProficiency(skill.name, value)}
-                            size="md"
-                            showLabel
-                          />
-                          <button
-                            onClick={() => removeSkill(skill.name)}
-                            className="p-xsmall text-muted-foreground hover:text-destructive transition-colors"
-                          >
-                            <FontAwesomeIcon icon={faTrash} />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+                        <FontAwesomeIcon icon={faPlus} />
+                        Adicionar Habilidade
+                      </Button>
+                    )}
+                  </div>
 
-                    <div className="flex justify-end mt-medium">
+                  {/* Skills grid */}
+                  {requiredSkills.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-sml">
+                      {requiredSkills.map((skill) => (
+                        <RequiredSkillCard
+                          key={skill.name}
+                          name={skill.name}
+                          proficiency={skill.proficiency}
+                          onProficiencyChange={updateSkillProficiency}
+                          onDelete={removeSkill}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-xlarge text-muted-foreground">
+                      <p>Selecione um cargo acima ou adicione habilidades manualmente</p>
+                    </div>
+                  )}
+
+                  {/* Mine talents button */}
+                  {requiredSkills.length > 0 && (
+                    <div className="flex justify-end pt-medium border-t border-border">
                       <Button
                         onClick={handleMineTalents}
-                        disabled={isLoadingRanking || requiredSkills.length === 0}
+                        disabled={isLoadingRanking}
+                        size="lg"
                         className="gap-sml"
                       >
                         {isLoadingRanking ? (
@@ -324,11 +397,11 @@ export default function TalentMining() {
                         Minerar Talentos
                       </Button>
                     </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Ranked Users */}
           {(isLoadingRanking || rankedUsers.length > 0) && (
@@ -336,7 +409,7 @@ export default function TalentMining() {
               <CardHeader>
                 <CardTitle>Ranking de Talentos</CardTitle>
                 <CardDescription>
-                  Colaboradores ordenados por aderência às habilidades requeridas
+                  Colaboradores ordenados por aderência semântica às habilidades requeridas
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -344,7 +417,7 @@ export default function TalentMining() {
                   <div className="flex items-center justify-center py-xlarge">
                     <FontAwesomeIcon icon={faSpinner} spin className="text-primary text-2xl mr-sml" />
                     <span className="text-label text-muted-foreground">
-                      Minerando talentos...
+                      Minerando talentos com busca semântica...
                     </span>
                   </div>
                 ) : (
@@ -391,8 +464,14 @@ export default function TalentMining() {
                                       ? "bg-feedback-success/10 text-feedback-success"
                                       : "bg-feedback-warning/10 text-feedback-warning"
                                   )}
+                                  title={`Similaridade: ${Math.round(skill.similarity * 100)}%`}
                                 >
                                   {skill.skillName}: {skill.userProficiency}/{skill.requiredProficiency}★
+                                  {skill.similarity < 1 && (
+                                    <span className="ml-1 opacity-70">
+                                      (~{Math.round(skill.similarity * 100)}%)
+                                    </span>
+                                  )}
                                 </div>
                               ))}
                             </div>
