@@ -151,10 +151,22 @@ serve(async (req) => {
                        accessData.authorized === true ||
                        (Array.isArray(accessData.permissions) && accessData.permissions.some((p: any) => p.allowed === true || p.authorized === true));
 
+      // Build the request payload for debugging
+      const requestPayload = {
+        permissions: [
+          {
+            resource,
+            action: permission,
+          }
+        ],
+      };
+
       return new Response(
         JSON.stringify({ 
           hasAccess,
-          raw: accessData 
+          raw: accessData,
+          request: requestPayload,
+          response: accessData,
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
