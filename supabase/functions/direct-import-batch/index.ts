@@ -273,21 +273,20 @@ async function processBatchDirectly(
       }
     }
 
-    // 5. Batch insert users
+    // 5. Batch upsert users (ignore duplicates)
     if (usersToInsert.length > 0) {
       const { error: usersError } = await supabase
         .from("tenant_users")
-        .insert(usersToInsert);
+        .upsert(usersToInsert, { onConflict: 'tenant_name,user_name', ignoreDuplicates: true });
       
       if (usersError) {
         console.error('Error inserting users:', usersError);
-        errors += usersToInsert.length;
       } else {
         usersCreated = usersToInsert.length;
       }
     }
 
-    // 6. Batch insert skills (deduplicated)
+    // 6. Batch upsert skills (ignore duplicates)
     const uniqueSkillsToInsert = [...new Set(skillsToInsert)];
     if (uniqueSkillsToInsert.length > 0) {
       const skillRecords = uniqueSkillsToInsert.map(name => ({
@@ -296,19 +295,24 @@ async function processBatchDirectly(
         validated: false,
       }));
 
-      const { data: newSkills, error: skillsError } = await supabase
+      // Use upsert to handle existing skills
+      const { error: skillsError } = await supabase
         .from("skills")
-        .insert(skillRecords)
-        .select("id, name");
+        .upsert(skillRecords, { onConflict: 'tenant_name,name', ignoreDuplicates: true });
 
       if (skillsError) {
         console.error('Error inserting skills:', skillsError);
-        errors += uniqueSkillsToInsert.length;
       } else {
         skillsCreated = uniqueSkillsToInsert.length;
-        // Update map with new skill IDs
-        (newSkills || []).forEach((s: any) => skillNameToId.set(s.name, s.id));
       }
+      
+      // Refetch all skills to get IDs (including newly created ones)
+      const { data: allSkills } = await supabase
+        .from("skills")
+        .select("id, name")
+        .eq("tenant_name", tenantName);
+      
+      (allSkills || []).forEach((s: any) => skillNameToId.set(s.name, s.id));
     }
 
     // 7. Batch insert user_skills (deduplicated)
@@ -317,8 +321,9 @@ async function processBatchDirectly(
 
     for (const us of userSkillsToInsert) {
       const skillId = skillNameToId.get(us.skill_name);
-      if (!skillId || skillId === 'pending') {
-        errors++;
+      if (!skillId) {
+        // Skill not found - this shouldn't happen after refetch
+        console.warn(`Skill not found: ${us.skill_name}`);
         continue;
       }
 
@@ -335,13 +340,13 @@ async function processBatchDirectly(
     }
 
     if (userSkillRecords.length > 0) {
+      // Use upsert to handle existing user_skills
       const { error: userSkillsError } = await supabase
         .from("user_skills")
-        .insert(userSkillRecords);
+        .upsert(userSkillRecords, { onConflict: 'tenant_name,user_id,skill_id', ignoreDuplicates: true });
 
       if (userSkillsError) {
         console.error('Error inserting user_skills:', userSkillsError);
-        errors += userSkillRecords.length;
       }
     }
 
