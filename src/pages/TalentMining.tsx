@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { RequiredSkillCard } from "@/components/RequiredSkillCard";
 import { usePlatform } from "@/contexts/PlatformContext";
+import { useCheckAccess } from "@/hooks/useCheckAccess";
+import { AccessDenied } from "@/components/AccessDenied";
 import { supabase } from "@/integrations/supabase/client";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faSearch, faBriefcase, faUsers, faSpinner, faTrophy, faMedal, faAward, faPlus, faEye, faUser } from "@fortawesome/free-solid-svg-icons";
@@ -14,7 +16,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useDebounce } from "@/hooks/useDebounce";
+import { Loader2 } from "lucide-react";
 
+const TALENT_MINING_RESOURCE = "res://senior.com.br/analytics/hcm/myAnalytics";
+const TALENT_MINING_PERMISSION = "Visualizar";
 interface JobPosition {
   id: string;
   jobPositionName: string;
@@ -53,6 +58,12 @@ export default function TalentMining() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { tenantName, userName, isLoaded, permission, setPermission, isPermissionValid } = usePlatform();
+
+  // Permission check
+  const { hasAccess, isChecking } = useCheckAccess({
+    resource: TALENT_MINING_RESOURCE,
+    permission: TALENT_MINING_PERMISSION,
+  });
 
   // Job position search
   const [jobPositions, setJobPositions] = useState<JobPosition[]>([]);
@@ -310,14 +321,27 @@ export default function TalentMining() {
     }
   };
 
-  if (!isLoaded) {
+  // Show loading while checking permissions or platform context
+  if (!isLoaded || isChecking) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
-          <div className="inline-block w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mb-small" />
-          <p className="text-label text-muted-foreground">Carregando...</p>
+          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-small" />
+          <p className="text-label text-muted-foreground">
+            {isChecking ? "Verificando permissões..." : "Carregando..."}
+          </p>
         </div>
       </div>
+    );
+  }
+
+  // Show access denied if no permission
+  if (hasAccess === false) {
+    return (
+      <AccessDenied 
+        resource={TALENT_MINING_RESOURCE} 
+        permission={TALENT_MINING_PERMISSION} 
+      />
     );
   }
 

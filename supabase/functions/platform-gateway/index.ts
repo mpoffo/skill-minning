@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { action, servicesUrl, username, password, accessToken } = await req.json();
+    const { action, servicesUrl, username, password, accessToken, resource, permission } = await req.json();
 
     console.log(`Platform Gateway: action=${action}, servicesUrl=${servicesUrl}`);
 
@@ -87,8 +87,51 @@ serve(async (req) => {
       );
     }
 
+    if (action === 'checkAccess') {
+      if (!accessToken || !servicesUrl || !resource || !permission) {
+        return new Response(
+          JSON.stringify({ error: 'Missing required fields: accessToken, servicesUrl, resource, permission' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const checkAccessResponse = await fetch(`${servicesUrl}platform/authorization/queries/checkAccess`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          resource,
+          action: permission,
+        }),
+      });
+
+      console.log(`CheckAccess response status: ${checkAccessResponse.status}`);
+
+      if (!checkAccessResponse.ok) {
+        const errorText = await checkAccessResponse.text();
+        console.error(`CheckAccess failed: ${errorText}`);
+        return new Response(
+          JSON.stringify({ error: 'Failed to check access', details: errorText, hasAccess: false }),
+          { status: checkAccessResponse.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const accessData = await checkAccessResponse.json();
+      console.log('CheckAccess successful:', accessData);
+
+      return new Response(
+        JSON.stringify({ 
+          hasAccess: accessData.ok === true || accessData.allowed === true || accessData.authorized === true,
+          raw: accessData 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     return new Response(
-      JSON.stringify({ error: 'Invalid action. Use "login" or "getUser"' }),
+      JSON.stringify({ error: 'Invalid action. Use "login", "getUser", or "checkAccess"' }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
