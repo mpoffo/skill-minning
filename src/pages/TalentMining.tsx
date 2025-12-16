@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { PageHeader } from "@/components/PageHeader";
 import { PageFooter } from "@/components/PageFooter";
@@ -6,20 +6,21 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { RequiredSkillCard } from "@/components/RequiredSkillCard";
+import { RankedUserCard } from "@/components/RankedUserCard";
 import { usePlatform } from "@/contexts/PlatformContext";
 import { useCheckAccess } from "@/hooks/useCheckAccess";
 import { AccessDenied } from "@/components/AccessDenied";
 import { supabase } from "@/integrations/supabase/client";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faSearch, faBriefcase, faUsers, faSpinner, faTrophy, faMedal, faAward, faPlus, faEye, faUser } from "@fortawesome/free-solid-svg-icons";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { faSearch, faBriefcase, faUsers, faSpinner, faPlus, faUserGroup } from "@fortawesome/free-solid-svg-icons";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
-import { cn } from "@/lib/utils";
 import { useDebounce } from "@/hooks/useDebounce";
 import { Loader2 } from "lucide-react";
 
 const TALENT_MINING_RESOURCE = "res://senior.com.br/analytics/hcm/myAnalytics";
 const TALENT_MINING_PERMISSION = "Visualizar";
+
 interface JobPosition {
   id: string;
   jobPositionName: string;
@@ -31,10 +32,20 @@ interface RequiredSkill {
   proficiency: number;
 }
 
+interface UserDetails {
+  certifications?: string[];
+  graduation?: string[];
+  languages?: string;
+  pdi?: string;
+  feedbacks?: string[];
+  hardSkills?: string[];
+}
+
 interface RankedUser {
   userId: string;
   userName: string;
   fullName: string;
+  leaderName?: string;
   matchScore: number;
   matchedSkills: {
     skillName: string;
@@ -43,6 +54,7 @@ interface RankedUser {
     similarity: number;
   }[];
   justification?: string;
+  details?: UserDetails;
 }
 
 const TALENT_MINING_STATE_KEY = "talent-mining-state";
@@ -84,15 +96,6 @@ export default function TalentMining() {
   const [rankedUsers, setRankedUsers] = useState<RankedUser[]>([]);
   const [isLoadingRanking, setIsLoadingRanking] = useState(false);
 
-  // Profile summary dialog
-  const [profileDialogOpen, setProfileDialogOpen] = useState(false);
-  const [profileData, setProfileData] = useState<{
-    name: string;
-    position: string;
-    seniority: string;
-    summary: string;
-  } | null>(null);
-  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
 
   // Restore state from sessionStorage on mount
   useEffect(() => {
@@ -116,17 +119,6 @@ export default function TalentMining() {
     }
   }, [searchParams, navigate]);
 
-  // Save state before navigation
-  const navigateToUserSkills = useCallback((targetUserName: string) => {
-    const state: TalentMiningState = {
-      selectedJob,
-      searchTerm,
-      requiredSkills,
-      rankedUsers,
-    };
-    sessionStorage.setItem(TALENT_MINING_STATE_KEY, JSON.stringify(state));
-    navigate(`/user-skills/${targetUserName}?returnTo=/talent-mining?restored=true`);
-  }, [selectedJob, searchTerm, requiredSkills, rankedUsers, navigate]);
 
   // Load job positions from gist
   useEffect(() => {
@@ -267,59 +259,6 @@ export default function TalentMining() {
     }
   };
 
-  const getRankIcon = (index: number) => {
-    switch (index) {
-      case 0:
-        return <FontAwesomeIcon icon={faTrophy} className="text-feedback-warning text-xl" />;
-      case 1:
-        return <FontAwesomeIcon icon={faMedal} className="text-grayscale-40 text-xl" />;
-      case 2:
-        return <FontAwesomeIcon icon={faAward} className="text-primary text-xl" />;
-      default:
-        return <span className="text-label text-muted-foreground font-bold">{index + 1}º</span>;
-    }
-  };
-
-  const handleViewProfile = async (targetUserName: string) => {
-    setIsLoadingProfile(true);
-    setProfileDialogOpen(true);
-    setProfileData(null);
-
-    try {
-      const { data, error } = await supabase.functions.invoke("generate-profile-summary", {
-        body: { userName: targetUserName },
-      });
-
-      if (error) throw error;
-
-      if (data.error) {
-        toast({
-          title: "Colaborador não encontrado",
-          description: "Não foram encontrados dados para este colaborador",
-          variant: "destructive",
-        });
-        setProfileDialogOpen(false);
-        return;
-      }
-
-      setProfileData({
-        name: data.collaborator.name,
-        position: data.collaborator.position,
-        seniority: data.collaborator.seniority,
-        summary: data.summary,
-      });
-    } catch (error) {
-      console.error("Error fetching profile:", error);
-      toast({
-        title: "Erro",
-        description: "Não foi possível gerar o perfil resumido",
-        variant: "destructive",
-      });
-      setProfileDialogOpen(false);
-    } finally {
-      setIsLoadingProfile(false);
-    }
-  };
 
   // Show loading while checking permissions or platform context
   if (!isLoaded || isChecking) {
@@ -530,10 +469,29 @@ export default function TalentMining() {
           {(isLoadingRanking || rankedUsers.length > 0) && (
             <Card>
               <CardHeader>
-                <CardTitle>Ranking de Talentos</CardTitle>
-                <CardDescription>
-                  Colaboradores ordenados por aderência semântica às habilidades requeridas
-                </CardDescription>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-sml">
+                    <FontAwesomeIcon icon={faUserGroup} className="text-primary" />
+                    <CardTitle>Top {Math.min(rankedUsers.length, 20)} Candidatos</CardTitle>
+                  </div>
+                  {selectedJob && (
+                    <Badge variant="outline" className="text-small">
+                      {selectedJob.jobPositionName}
+                    </Badge>
+                  )}
+                </div>
+                {requiredSkills.length > 0 && (
+                  <div className="flex flex-wrap gap-xsmall mt-sml">
+                    {requiredSkills.slice(0, 5).map((skill) => (
+                      <Badge key={skill.name} className="bg-primary/10 text-primary">
+                        {skill.name}
+                      </Badge>
+                    ))}
+                    {requiredSkills.length > 5 && (
+                      <Badge variant="outline">+{requiredSkills.length - 5}</Badge>
+                    )}
+                  </div>
+                )}
               </CardHeader>
               <CardContent>
                 {isLoadingRanking ? (
@@ -546,91 +504,17 @@ export default function TalentMining() {
                 ) : (
                   <div className="space-y-sml">
                     {rankedUsers.map((user, index) => (
-                      <div
+                      <RankedUserCard
                         key={user.userId}
-                        className={cn(
-                          "p-default rounded-big border",
-                          index === 0 && "border-feedback-warning bg-feedback-warning/5",
-                          index === 1 && "border-grayscale-40 bg-grayscale-5",
-                          index === 2 && "border-primary bg-primary/5",
-                          index > 2 && "border-border bg-card"
-                        )}
-                      >
-                        <div className="flex items-start gap-medium">
-                          <div className="flex-shrink-0 w-10 h-10 flex items-center justify-center">
-                            {getRankIcon(index)}
-                          </div>
-                          <div className="flex-1">
-                            <div className="flex items-center justify-between mb-xsmall">
-                              <div>
-                                <h4 className="text-label font-semibold text-foreground">
-                                  {user.fullName || user.userName}
-                                </h4>
-                                <span className="text-small text-muted-foreground">
-                                  @{user.userName}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-sml">
-                                <div className="text-right">
-                                  <span className="text-h3 font-bold text-primary">
-                                    {Math.round(user.matchScore)}%
-                                  </span>
-                                  <p className="text-small text-muted-foreground">Aderência</p>
-                                </div>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => navigateToUserSkills(user.userName)}
-                                  className="gap-xsmall"
-                                >
-                                  <FontAwesomeIcon icon={faEye} />
-                                  Ver habilidades
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleViewProfile(user.userName)}
-                                  className="gap-xsmall"
-                                >
-                                  <FontAwesomeIcon icon={faUser} />
-                                  Perfil
-                                </Button>
-                              </div>
-                            </div>
-                            
-                            {/* Justification for top 3 */}
-                            {index < 3 && user.justification && (
-                              <div className="mb-sml p-sml bg-background/50 rounded-medium border border-border/50">
-                                <p className="text-small text-foreground italic">
-                                  "{user.justification}"
-                                </p>
-                              </div>
-                            )}
-                            
-                            <div className="flex flex-wrap gap-xsmall mt-sml">
-                              {user.matchedSkills.map((skill) => (
-                                <div
-                                  key={skill.skillName}
-                                  className={cn(
-                                    "px-sml py-xxsmall rounded-medium text-small",
-                                    skill.userProficiency >= skill.requiredProficiency
-                                      ? "bg-feedback-success/10 text-feedback-success"
-                                      : "bg-feedback-warning/10 text-feedback-warning"
-                                  )}
-                                  title={`Similaridade: ${Math.round(skill.similarity * 100)}%`}
-                                >
-                                  {skill.skillName}: {skill.userProficiency}/{skill.requiredProficiency}★
-                                  {skill.similarity < 1 && (
-                                    <span className="ml-1 opacity-70">
-                                      (~{Math.round(skill.similarity * 100)}%)
-                                    </span>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
+                        rank={index}
+                        userName={user.userName}
+                        fullName={user.fullName}
+                        leaderName={user.leaderName}
+                        matchScore={user.matchScore}
+                        matchedSkills={user.matchedSkills}
+                        justification={user.justification}
+                        details={user.details}
+                      />
                     ))}
                   </div>
                 )}
@@ -647,35 +531,6 @@ export default function TalentMining() {
         permission={permission}
         onPermissionChange={setPermission}
       />
-
-      {/* Profile Summary Dialog */}
-      <Dialog open={profileDialogOpen} onOpenChange={setProfileDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-sml">
-              <FontAwesomeIcon icon={faUser} className="text-primary" />
-              Perfil Resumido
-            </DialogTitle>
-            {profileData && (
-              <DialogDescription>
-                {profileData.name} • {profileData.position} • {profileData.seniority}
-              </DialogDescription>
-            )}
-          </DialogHeader>
-          <div className="py-medium">
-            {isLoadingProfile ? (
-              <div className="flex items-center justify-center py-xlarge">
-                <FontAwesomeIcon icon={faSpinner} spin className="text-primary text-xl mr-sml" />
-                <span className="text-muted-foreground">Gerando perfil resumido...</span>
-              </div>
-            ) : profileData ? (
-              <p className="text-body text-foreground leading-relaxed">
-                {profileData.summary}
-              </p>
-            ) : null}
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

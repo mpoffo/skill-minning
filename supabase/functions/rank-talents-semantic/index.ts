@@ -18,13 +18,37 @@ interface UserSkillMatch {
   similarity: number;
 }
 
+interface UserDetails {
+  certifications?: string[];
+  graduation?: string[];
+  languages?: string;
+  pdi?: string;
+  feedbacks?: string[];
+  hardSkills?: string[];
+}
+
 interface RankedUser {
   userId: string;
   userName: string;
   fullName: string;
+  leaderName?: string;
   matchScore: number;
   matchedSkills: UserSkillMatch[];
   justification?: string;
+  details?: UserDetails;
+}
+
+interface Collaborator {
+  user_name: string;
+  employee_name: string;
+  leader_name?: string;
+  certifications?: string;
+  graduation?: string;
+  postgraduation?: string;
+  language_proficiency?: string;
+  PDI?: string;
+  feedbacks?: string;
+  hard_skills?: string;
 }
 
 serve(async (req) => {
@@ -66,6 +90,25 @@ serve(async (req) => {
     }
 
     console.log(`Found ${users.length} users`);
+
+    // Fetch collaborators data from external source for additional details
+    let collaboratorsMap: Record<string, Collaborator> = {};
+    try {
+      const collabResponse = await fetch(
+        "https://gist.githubusercontent.com/mpoffo/76cb8872843cfd03ff3b44c29ba1f485/raw/69460f00cfa5177ab5ddddcb067e807885b54808/gistfile1.txt"
+      );
+      if (collabResponse.ok) {
+        const collaborators: Collaborator[] = await collabResponse.json();
+        for (const collab of collaborators) {
+          if (collab.user_name) {
+            collaboratorsMap[collab.user_name.toLowerCase()] = collab;
+          }
+        }
+        console.log(`Loaded ${Object.keys(collaboratorsMap).length} collaborators for details`);
+      }
+    } catch (collabErr) {
+      console.error("Error fetching collaborators data:", collabErr);
+    }
 
     // Get all skills for the tenant
     const { data: allSkills, error: skillsError } = await supabase
@@ -280,12 +323,35 @@ REGRAS:
       if (matchedSkills.length > 0 && maxPossibleScore > 0) {
         const matchScore = (totalWeightedScore / maxPossibleScore) * 100;
         
+        // Get collaborator details if available
+        const collab = collaboratorsMap[user.user_name.toLowerCase()];
+        
+        // Parse details from collaborator data
+        const details: UserDetails | undefined = collab ? {
+          certifications: collab.certifications ? collab.certifications.split(',').map(s => s.trim()).filter(Boolean) : undefined,
+          graduation: [
+            ...(collab.graduation ? collab.graduation.split(',').map(s => s.trim()).filter(Boolean) : []),
+            ...(collab.postgraduation ? collab.postgraduation.split(',').map(s => s.trim()).filter(Boolean) : [])
+          ].filter(Boolean).length > 0 
+            ? [
+                ...(collab.graduation ? collab.graduation.split(',').map(s => s.trim()).filter(Boolean) : []),
+                ...(collab.postgraduation ? collab.postgraduation.split(',').map(s => s.trim()).filter(Boolean) : [])
+              ]
+            : undefined,
+          languages: collab.language_proficiency || undefined,
+          pdi: collab.PDI || undefined,
+          feedbacks: collab.feedbacks ? collab.feedbacks.split(',').map(s => s.trim()).filter(Boolean) : undefined,
+          hardSkills: collab.hard_skills ? collab.hard_skills.split(',').map(s => s.trim()).filter(Boolean) : undefined,
+        } : undefined;
+        
         rankedUsers.push({
           userId: user.id,
           userName: user.user_name,
           fullName: user.full_name || user.user_name,
+          leaderName: collab?.leader_name,
           matchScore,
           matchedSkills,
+          details,
         });
       }
     }
