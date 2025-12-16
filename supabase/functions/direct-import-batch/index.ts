@@ -49,7 +49,17 @@ async function processInBackground(jobId: string, tenantName: string, limit?: nu
 
   try {
     // Load collaborators
-    const collaboratorsUrl = sourceUrl || DEFAULT_COLLABORATORS_URL;
+    let collaboratorsUrl = sourceUrl || DEFAULT_COLLABORATORS_URL;
+    
+    // Auto-convert gist page URLs to raw URLs
+    if (collaboratorsUrl.includes('gist.github.com') && !collaboratorsUrl.includes('gist.githubusercontent.com')) {
+      // Convert https://gist.github.com/user/id to https://gist.githubusercontent.com/user/id/raw
+      collaboratorsUrl = collaboratorsUrl
+        .replace('gist.github.com', 'gist.githubusercontent.com')
+        .replace(/\/?$/, '/raw');
+      await addLog(`URL convertida para raw: ${collaboratorsUrl}`, "info");
+    }
+    
     await addLog(`Carregando colaboradores de: ${collaboratorsUrl}`, "info");
     const response = await fetch(collaboratorsUrl);
     if (!response.ok) throw new Error(`Failed to fetch collaborators: ${response.status}`);
