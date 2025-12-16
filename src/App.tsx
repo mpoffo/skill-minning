@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { PlatformProvider } from "@/contexts/PlatformContext";
 import MySkills from "./pages/MySkills";
 import TalentMining from "./pages/TalentMining";
+import UserSkillsView from "./pages/UserSkillsView";
 import PlatformEmulator from "./pages/PlatformEmulator";
 import NotFound from "./pages/NotFound";
 
@@ -27,6 +28,11 @@ const App = () => (
           <Route path="/talent-mining" element={
             <PlatformProvider>
               <TalentMining />
+            </PlatformProvider>
+          } />
+          <Route path="/user-skills/:userName" element={
+            <PlatformProvider>
+              <UserSkillsView />
             </PlatformProvider>
           } />
           <Route path="*" element={<NotFound />} />
