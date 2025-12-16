@@ -4,6 +4,8 @@ import { Progress } from "@/components/ui/progress";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { usePlatform } from "@/contexts/PlatformContext";
 import { useCheckAccess } from "@/hooks/useCheckAccess";
@@ -56,6 +58,7 @@ const BatchProcessing = () => {
   const [job, setJob] = useState<BatchJob | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [importMode, setImportMode] = useState<ImportMode | null>(null);
+  const [directImportLimit, setDirectImportLimit] = useState<string>("");
 
   // Fetch current job status
   const fetchJobStatus = useCallback(async () => {
@@ -123,9 +126,20 @@ const BatchProcessing = () => {
     
     const functionName = mode === "ai" ? "background-batch-processing" : "direct-import-batch";
     
+    // Build request body
+    const requestBody: Record<string, unknown> = { action: 'start', tenantName };
+    
+    // Add limit for direct import
+    if (mode === "direct" && directImportLimit) {
+      const limit = parseInt(directImportLimit, 10);
+      if (!isNaN(limit) && limit > 0) {
+        requestBody.limit = limit;
+      }
+    }
+    
     try {
       const { data, error } = await supabase.functions.invoke(functionName, {
-        body: { action: 'start', tenantName },
+        body: requestBody,
       });
       
       if (error) throw error;
@@ -294,7 +308,7 @@ const BatchProcessing = () => {
               </CardContent>
             </Card>
 
-            <Card className="border-2 hover:border-primary/50 transition-colors cursor-pointer" onClick={() => startProcessing("direct")}>
+            <Card className="border-2 hover:border-primary/50 transition-colors">
               <CardHeader>
                 <div className="flex items-center gap-3">
                   <div className="p-3 rounded-lg bg-green-500/10">
@@ -311,9 +325,28 @@ const BatchProcessing = () => {
                   <li>• Importa skills já definidas no campo hard_skills</li>
                   <li>• Não usa IA - mais rápido</li>
                   <li>• Skills separadas por "|"</li>
-                  <li>• Tempo estimado: ~1 minuto</li>
                 </ul>
-                <Button className="w-full mt-4 gap-2" variant="outline">
+                
+                <div className="mt-4 space-y-2">
+                  <Label htmlFor="limit" className="text-sm">
+                    Quantidade de colaboradores (deixe vazio para todos)
+                  </Label>
+                  <Input
+                    id="limit"
+                    type="number"
+                    min="1"
+                    placeholder="Ex: 50"
+                    value={directImportLimit}
+                    onChange={(e) => setDirectImportLimit(e.target.value)}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </div>
+                
+                <Button 
+                  className="w-full mt-4 gap-2" 
+                  variant="outline"
+                  onClick={() => startProcessing("direct")}
+                >
                   <FileJson className="h-4 w-4" />
                   Iniciar Importação Direta
                 </Button>
