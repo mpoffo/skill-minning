@@ -13,13 +13,23 @@ import { PageHeader } from "@/components/PageHeader";
 import { PageFooter } from "@/components/PageFooter";
 import { SkillGridCard } from "@/components/SkillGridCard";
 import { SkillSearchSidebar } from "@/components/SkillSearchSidebar";
+import { AccessDenied } from "@/components/AccessDenied";
 import { usePlatform } from "@/contexts/PlatformContext";
 import { useSkills } from "@/hooks/useSkills";
+import { useCheckAccess } from "@/hooks/useCheckAccess";
+
+const MY_SKILLS_RESOURCE = "res://senior.com.br/analytics/hcm/myAnalytics";
+const MY_SKILLS_PERMISSION = "Visualizar";
 
 type SortOption = "name-asc" | "name-desc" | "proficiency-asc" | "proficiency-desc";
 
 export default function MySkills() {
-  const { isLoaded, fullName, permission, setPermission, isPermissionValid } = usePlatform();
+  const { isLoaded, fullName, permission, setPermission } = usePlatform();
+  const { hasAccess, isChecking } = useCheckAccess({
+    resource: MY_SKILLS_RESOURCE,
+    permission: MY_SKILLS_PERMISSION,
+  });
+
   const { userSkills, isLoading, addSkill, updateProficiency, deleteSkill } = useSkills();
   
   const [searchTerm, setSearchTerm] = useState("");
@@ -72,14 +82,27 @@ export default function MySkills() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-background">
         <Loader2 className="w-8 h-8 animate-spin text-primary mb-default" />
-        <p className="text-label text-muted-foreground">
-          Aguardando contexto da plataforma...
-        </p>
+        <p className="text-label text-muted-foreground">Aguardando contexto da plataforma...</p>
         <p className="text-small text-muted-foreground mt-xsmall">
           Esta tela deve ser carregada dentro da plataforma Senior
         </p>
       </div>
     );
+  }
+
+  // Show loading while checking permissions
+  if (isChecking) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-primary mb-default" />
+        <p className="text-label text-muted-foreground">Verificando permissões...</p>
+      </div>
+    );
+  }
+
+  // Show access denied if no permission
+  if (hasAccess === false) {
+    return <AccessDenied resource={MY_SKILLS_RESOURCE} permission={MY_SKILLS_PERMISSION} />;
   }
 
   return (
@@ -192,8 +215,8 @@ export default function MySkills() {
 
       <PageFooter
         userName={fullName || "Usuário"}
-        resource="res://senior.com.br/analytics/hcm/myAnalytics"
-        authorized={isPermissionValid}
+        resource={MY_SKILLS_RESOURCE}
+        authorized={hasAccess === true}
         permission={permission}
         onPermissionChange={setPermission}
       />

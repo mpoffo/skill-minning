@@ -129,17 +129,17 @@ export default function PlatformEmulator() {
         return;
       }
 
-      // Check hasAccess field - must be explicitly true
-      const accessGranted = data.hasAccess === true;
-      
-      if (data.error || !accessGranted) {
-        setCheckAccessResult({ 
-          success: false, 
-          message: data.error || 'Acesso negado',
-          curl: data.curlCommand,
+      // Access is granted only when BOTH flags are explicitly true
+      const accessGranted = data?.hasAccess === true && data?.raw?.authorized === true;
+
+      if (data?.error || !accessGranted) {
+        setCheckAccessResult({
+          success: false,
+          message: data?.error || "Acesso negado",
+          curl: data?.curlCommand,
         });
       } else {
-        setCheckAccessResult({ success: true, message: 'Acesso permitido!' });
+        setCheckAccessResult({ success: true, message: "Acesso permitido!" });
         toast.success("CheckAccess OK!");
       }
     } catch (err) {
