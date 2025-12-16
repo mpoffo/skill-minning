@@ -50,16 +50,32 @@ serve(async (req) => {
     }
 
     const collaboratorsText = await collaboratorsResponse.text();
-    // Handle NaN values in JSON
-    const cleanedJson = collaboratorsText.replace(/:\s*NaN/g, ': null');
-    const collaborators: Collaborator[] = JSON.parse(cleanedJson);
+    // Handle NaN values in JSON (with or without spaces)
+    const cleanedJson = collaboratorsText
+      .replace(/:\s*NaN\s*,/g, ': null,')
+      .replace(/:\s*NaN\s*}/g, ': null}');
+    
+    let collaborators: Collaborator[];
+    try {
+      collaborators = JSON.parse(cleanedJson);
+    } catch (parseError) {
+      console.error("JSON parse error:", parseError);
+      throw new Error("Failed to parse collaborators data");
+    }
+    
+    console.log(`Parsed ${collaborators.length} collaborators`);
+    
+    // Log available usernames for debugging
+    const userNames = collaborators.map(c => c.user_name).slice(0, 10);
+    console.log(`Sample user_names: ${userNames.join(", ")}`);
 
     // Find collaborator by user_name
     const collaborator = collaborators.find(
-      (c) => c.user_name.toLowerCase() === userName.toLowerCase()
+      (c) => c.user_name && c.user_name.toLowerCase() === userName.toLowerCase()
     );
 
     if (!collaborator) {
+      console.log(`Collaborator not found for userName: ${userName}`);
       return new Response(
         JSON.stringify({ error: "Collaborator not found", summary: null }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
