@@ -159,7 +159,7 @@ export function AIRankedCandidateCard({ candidate }: AIRankedCandidateCardProps)
               <div className="mb-4">
                 <div className="flex items-center gap-2 mb-2">
                   <FontAwesomeIcon icon={faGrip} className="text-muted-foreground text-sm" />
-                  <span className="text-sm font-semibold text-foreground">Hard Skills</span>
+                  <span className="text-sm font-semibold text-foreground">Skills</span>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {candidate.evidence.hard_skills.map((skill, idx) => (
