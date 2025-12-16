@@ -49,6 +49,25 @@ function getProficiencyFromSeniority(seniority: string): { min: number; max: num
   return { min: 3, max: 4 }; // Default to mid-level
 }
 
+// Helper function to check if a value is valid (not NaN, null, undefined, or invalid string)
+function isValidValue(value: any): boolean {
+  if (value === null || value === undefined) return false;
+  if (typeof value === 'number' && isNaN(value)) return false;
+  if (typeof value === 'string') {
+    const trimmed = value.trim().toLowerCase();
+    if (trimmed === '' || trimmed === 'nan' || trimmed === 'null' || trimmed === 'undefined' || trimmed === 'n/a' || trimmed === 'none') {
+      return false;
+    }
+  }
+  return true;
+}
+
+// Helper function to sanitize and return valid string or empty string
+function sanitizeValue(value: any): string {
+  if (!isValidValue(value)) return "";
+  return String(value).trim();
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -71,25 +90,54 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    // Build the prompt with all collaborators data
-    const collaboratorsData = collaborators.map((c: Collaborator) => {
-      const profRange = getProficiencyFromSeniority(c.seniority);
-      return {
-        user_name: c.user_name,
-        employee_name: c.employee_name,
-        job_position: c.job_position,
-        seniority: c.seniority,
-        proficiency_range: profRange,
-        data: {
-          responsabilities: c.responsabilities || "",
-          graduation: c.graduation || "",
-          postgraduation: c.postgraduation || "",
-          certifications: c.certifications || "",
-          language_proficiency: c.language_proficiency || "",
-          PDI: c.PDI || ""
-        }
-      };
-    });
+    // Build the prompt with all collaborators data, filtering invalid values
+    const collaboratorsData = collaborators
+      .filter((c: Collaborator) => isValidValue(c.user_name)) // Skip collaborators without valid user_name
+      .map((c: Collaborator) => {
+        const profRange = getProficiencyFromSeniority(c.seniority || "");
+        
+        // Only include fields that have valid values
+        const data: Record<string, string> = {};
+        
+        const responsabilities = sanitizeValue(c.responsabilities);
+        const graduation = sanitizeValue(c.graduation);
+        const postgraduation = sanitizeValue(c.postgraduation);
+        const certifications = sanitizeValue(c.certifications);
+        const language_proficiency = sanitizeValue(c.language_proficiency);
+        const PDI = sanitizeValue(c.PDI);
+        
+        if (responsabilities) data.responsabilities = responsabilities;
+        if (graduation) data.graduation = graduation;
+        if (postgraduation) data.postgraduation = postgraduation;
+        if (certifications) data.certifications = certifications;
+        if (language_proficiency) data.language_proficiency = language_proficiency;
+        if (PDI) data.PDI = PDI;
+        
+        return {
+          user_name: c.user_name,
+          employee_name: sanitizeValue(c.employee_name) || c.user_name,
+          job_position: sanitizeValue(c.job_position) || "não informado",
+          seniority: sanitizeValue(c.seniority) || "não informado",
+          proficiency_range: profRange,
+          data
+        };
+      })
+      .filter((c: any) => Object.keys(c.data).length > 0); // Skip collaborators with no valid data fields
+
+    // If all collaborators were filtered out, return empty results
+    if (collaboratorsData.length === 0) {
+      console.log("No valid collaborator data to process after filtering");
+      return new Response(
+        JSON.stringify({ 
+          results: {},
+          processedCount: 0,
+          skippedCount: collaborators.length
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log(`Valid collaborators after filtering: ${collaboratorsData.length}/${collaborators.length}`);
 
     const systemPrompt = `Você é um especialista em extração de habilidades profissionais.
 Analise os dados de múltiplos colaboradores e extraia habilidades técnicas (hard skills) de cada um.
@@ -199,12 +247,14 @@ Lembre-se:
       }
     }
 
-    console.log(`Extracted skills for ${Object.keys(cleanedResults).length} collaborators`);
+    const skippedCount = collaborators.length - collaboratorsData.length;
+    console.log(`Extracted skills for ${Object.keys(cleanedResults).length} collaborators, skipped ${skippedCount} due to invalid data`);
 
     return new Response(
       JSON.stringify({ 
         results: cleanedResults,
-        processedCount: Object.keys(cleanedResults).length
+        processedCount: Object.keys(cleanedResults).length,
+        skippedCount
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
