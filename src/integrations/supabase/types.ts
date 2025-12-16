@@ -14,6 +14,63 @@ export type Database = {
   }
   public: {
     Tables: {
+      batch_jobs: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          current_batch: number | null
+          errors: number | null
+          id: string
+          logs: Json | null
+          processed_collaborators: number | null
+          skills_created: number | null
+          skills_extracted: number | null
+          started_at: string | null
+          status: string
+          tenant_name: string
+          total_batches: number | null
+          total_collaborators: number | null
+          updated_at: string
+          users_created: number | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          current_batch?: number | null
+          errors?: number | null
+          id?: string
+          logs?: Json | null
+          processed_collaborators?: number | null
+          skills_created?: number | null
+          skills_extracted?: number | null
+          started_at?: string | null
+          status?: string
+          tenant_name: string
+          total_batches?: number | null
+          total_collaborators?: number | null
+          updated_at?: string
+          users_created?: number | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          current_batch?: number | null
+          errors?: number | null
+          id?: string
+          logs?: Json | null
+          processed_collaborators?: number | null
+          skills_created?: number | null
+          skills_extracted?: number | null
+          started_at?: string | null
+          status?: string
+          tenant_name?: string
+          total_batches?: number | null
+          total_collaborators?: number | null
+          updated_at?: string
+          users_created?: number | null
+        }
+        Relationships: []
+      }
       skills: {
         Row: {
           created_at: string
