@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.background-batch-processing]
 verify_jwt = false
+
+[functions.direct-import-batch]
+verify_jwt = false
