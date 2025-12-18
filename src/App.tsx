@@ -9,6 +9,7 @@ import TalentMining from "./pages/TalentMining";
 import UserSkillsView from "./pages/UserSkillsView";
 import PlatformEmulator from "./pages/PlatformEmulator";
 import BatchProcessing from "./pages/BatchProcessing";
+import JobAnonymization from "./pages/JobAnonymization";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -41,6 +42,7 @@ const App = () => (
               <BatchProcessing />
             </PlatformProvider>
           } />
+          <Route path="/job-anonymization" element={<JobAnonymization />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
