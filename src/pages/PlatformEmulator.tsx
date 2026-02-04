@@ -35,6 +35,10 @@ const defaultToken = {
 };
 
 const environments = {
+  producao: {
+    name: "Produção",
+    url: "https://platform.senior.com.br/t/senior.com.br/bridge/1.0/rest/",
+  },
   leaf: {
     name: "Leaf",
     url: "https://cloud-leaf.senior.com.br/t/senior.com.br/bridge/1.0/rest/",
@@ -265,6 +269,7 @@ export default function PlatformEmulator() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="producao">Produção</SelectItem>
                     <SelectItem value="leaf">Leaf</SelectItem>
                     <SelectItem value="homologx">Homologx</SelectItem>
                   </SelectContent>
