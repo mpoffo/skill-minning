@@ -7,7 +7,7 @@ const corsHeaders = {
 
 // API Senior iAssist Configuration
 const AGENT_ID = "b7b682f1-002e-4c75-bc8b-546cb5e7fb04";
-const API_TOKEN = "64bjZ7tMjJecYVgl1cF6QiLxR6zmOQ8f";
+const API_TOKEN = "zFIYWJK9zNCzAqfEhARNUUKLgGA6QBFz";
 const BASE_URL = "https://platform-homologx.senior.com.br/t/senior-x/platform/iassist/api";
 
 // Prompt template for talent ranking
