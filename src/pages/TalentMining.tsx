@@ -372,6 +372,23 @@ export default function TalentMining() {
     }
   };
 
+  // Restore from history
+  const handleRestoreHistory = useCallback((entry: MiningHistoryEntry) => {
+    if (entry.mode === "traditional") {
+      setIsAISearchMode(false);
+      if (entry.jobName) setSearchTerm(entry.jobName);
+      setRequiredSkills(entry.requiredSkills || []);
+      setRankedUsers(entry.rankedUsers || []);
+      setAISearchResult(null);
+    } else {
+      setIsAISearchMode(true);
+      setAISearchQuery(entry.aiQuery || "");
+      setAISearchResult(entry.aiResult || null);
+      setRankedUsers([]);
+    }
+    toast({ title: "Mineração restaurada", description: "Os resultados anteriores foram carregados." });
+  }, []);
+
   // Show loading while checking permissions or platform context
   if (!isLoaded || isChecking) {
     return (
@@ -395,23 +412,6 @@ export default function TalentMining() {
       />
     );
   }
-
-  // Restore from history
-  const handleRestoreHistory = useCallback((entry: MiningHistoryEntry) => {
-    if (entry.mode === "traditional") {
-      setIsAISearchMode(false);
-      if (entry.jobName) setSearchTerm(entry.jobName);
-      setRequiredSkills(entry.requiredSkills || []);
-      setRankedUsers(entry.rankedUsers || []);
-      setAISearchResult(null);
-    } else {
-      setIsAISearchMode(true);
-      setAISearchQuery(entry.aiQuery || "");
-      setAISearchResult(entry.aiResult || null);
-      setRankedUsers([]);
-    }
-    toast({ title: "Mineração restaurada", description: "Os resultados anteriores foram carregados." });
-  }, []);
 
   // Predefined prompts for AI search
   const predefinedPrompts = [
