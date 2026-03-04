@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { PageHeader } from "@/components/PageHeader";
 import { PageFooter } from "@/components/PageFooter";
@@ -23,6 +23,9 @@ import { Loader2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useMiningHistory } from "@/hooks/useMiningHistory";
+import { MiningHistoryPanel } from "@/components/MiningHistoryPanel";
+import type { MiningHistoryEntry } from "@/hooks/useMiningHistory";
 
 const TALENT_MINING_RESOURCE = "res://senior.com.br/analytics/hcm/myAnalytics";
 const TALENT_MINING_PERMISSION = "Visualizar";
@@ -147,6 +150,9 @@ export default function TalentMining() {
   const [aiSearchQuery, setAISearchQuery] = useState("");
   const [aiSearchResult, setAISearchResult] = useState<AISearchResult | null>(null);
   const [isLoadingAISearch, setIsLoadingAISearch] = useState(false);
+
+  // Mining history
+  const { history, addEntry, removeEntry, clearHistory } = useMiningHistory();
 
   // Restore state from sessionStorage on mount
   useEffect(() => {
@@ -289,12 +295,20 @@ export default function TalentMining() {
 
       if (error) throw error;
 
-      setRankedUsers(data.rankedUsers || []);
+      const users = data.rankedUsers || [];
+      setRankedUsers(users);
 
-      if ((data.rankedUsers || []).length === 0) {
+      if (users.length === 0) {
         toast({
           title: "Nenhum resultado",
           description: "Não foram encontrados colaboradores com habilidades similares",
+        });
+      } else {
+        addEntry({
+          mode: "traditional",
+          jobName: selectedJob?.jobPositionName,
+          requiredSkills,
+          rankedUsers: users,
         });
       }
     } catch (error) {
@@ -339,6 +353,12 @@ export default function TalentMining() {
           title: "Nenhum resultado",
           description: "A IA não encontrou candidatos para os requisitos informados",
         });
+      } else {
+        addEntry({
+          mode: "ai",
+          aiQuery: aiSearchQuery,
+          aiResult: data,
+        });
       }
     } catch (error) {
       console.error("Error in AI search:", error);
@@ -376,6 +396,23 @@ export default function TalentMining() {
     );
   }
 
+  // Restore from history
+  const handleRestoreHistory = useCallback((entry: MiningHistoryEntry) => {
+    if (entry.mode === "traditional") {
+      setIsAISearchMode(false);
+      if (entry.jobName) setSearchTerm(entry.jobName);
+      setRequiredSkills(entry.requiredSkills || []);
+      setRankedUsers(entry.rankedUsers || []);
+      setAISearchResult(null);
+    } else {
+      setIsAISearchMode(true);
+      setAISearchQuery(entry.aiQuery || "");
+      setAISearchResult(entry.aiResult || null);
+      setRankedUsers([]);
+    }
+    toast({ title: "Mineração restaurada", description: "Os resultados anteriores foram carregados." });
+  }, []);
+
   // Predefined prompts for AI search
   const predefinedPrompts = [
     "Desenvolvedor Python Sênior para Backend em microserviços",
@@ -403,8 +440,16 @@ export default function TalentMining() {
                 </p>
               </div>
               
-              {/* Mode Toggle Pills */}
+              {/* Mode Toggle Pills + History */}
+              <div className="flex items-center gap-sml flex-wrap">
+                <MiningHistoryPanel
+                  history={history}
+                  onRestore={handleRestoreHistory}
+                  onRemove={removeEntry}
+                  onClear={clearHistory}
+                />
               <div className="flex items-center bg-card rounded-big p-xsmall shadow-dp02 border border-border">
+
                 <button
                   onClick={() => setIsAISearchMode(false)}
                   className={`px-default py-sml rounded-medium text-label font-medium transition-all ${
@@ -427,6 +472,7 @@ export default function TalentMining() {
                   <FontAwesomeIcon icon={faRobot} />
                   Busca com IA
                 </button>
+              </div>
               </div>
             </div>
           </div>
