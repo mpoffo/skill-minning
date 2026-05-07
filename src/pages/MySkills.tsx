@@ -14,6 +14,7 @@ import { PageFooter } from "@/components/PageFooter";
 import { SkillGridCard } from "@/components/SkillGridCard";
 import { SkillSearchSidebar } from "@/components/SkillSearchSidebar";
 import { AccessDenied } from "@/components/AccessDenied";
+import { ManualUserSelector } from "@/components/ManualUserSelector";
 import { usePlatform } from "@/contexts/PlatformContext";
 import { useSkills } from "@/hooks/useSkills";
 import { useCheckAccess } from "@/hooks/useCheckAccess";
