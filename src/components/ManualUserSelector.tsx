@@ -26,7 +26,7 @@ export function ManualUserSelector({ onConfirm }: Props) {
         fullName: userName.trim(),
         tenantName: tenant,
       },
-      servicesUrl: "",
+      servicesUrl: "manual-context",
     };
     sessionStorage.setItem("platformContext", JSON.stringify(fakeContext));
     onConfirm();
