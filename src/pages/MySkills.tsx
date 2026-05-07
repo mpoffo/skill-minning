@@ -14,6 +14,7 @@ import { PageFooter } from "@/components/PageFooter";
 import { SkillGridCard } from "@/components/SkillGridCard";
 import { SkillSearchSidebar } from "@/components/SkillSearchSidebar";
 import { AccessDenied } from "@/components/AccessDenied";
+import { ManualUserSelector } from "@/components/ManualUserSelector";
 import { usePlatform } from "@/contexts/PlatformContext";
 import { useSkills } from "@/hooks/useSkills";
 import { useCheckAccess } from "@/hooks/useCheckAccess";
@@ -77,7 +78,10 @@ export default function MySkills() {
     return await addSkill(skillName, proficiency);
   };
 
-  // Auth bypass: /my-skills no longer requires platform context or permission check
+  // If platform context not loaded, ask for a manual user reference
+  if (!isLoaded) {
+    return <ManualUserSelector onConfirm={() => window.location.reload()} />;
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
