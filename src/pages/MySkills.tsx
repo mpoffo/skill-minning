@@ -77,33 +77,7 @@ export default function MySkills() {
     return await addSkill(skillName, proficiency);
   };
 
-  // Show loading state if platform context not loaded
-  if (!isLoaded) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-background">
-        <Loader2 className="w-8 h-8 animate-spin text-primary mb-default" />
-        <p className="text-label text-muted-foreground">Aguardando contexto da plataforma...</p>
-        <p className="text-small text-muted-foreground mt-xsmall">
-          Esta tela deve ser carregada dentro da plataforma Senior
-        </p>
-      </div>
-    );
-  }
-
-  // Show loading while checking permissions
-  if (isChecking) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-background">
-        <Loader2 className="w-8 h-8 animate-spin text-primary mb-default" />
-        <p className="text-label text-muted-foreground">Verificando permissões...</p>
-      </div>
-    );
-  }
-
-  // Show access denied if no permission
-  if (hasAccess === false) {
-    return <AccessDenied resource={MY_SKILLS_RESOURCE} permission={MY_SKILLS_PERMISSION} />;
-  }
+  // Auth bypass: /my-skills no longer requires platform context or permission check
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
