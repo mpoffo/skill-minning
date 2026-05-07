@@ -78,7 +78,10 @@ export default function MySkills() {
     return await addSkill(skillName, proficiency);
   };
 
-  // Auth bypass: /my-skills no longer requires platform context or permission check
+  // If platform context not loaded, ask for a manual user reference
+  if (!isLoaded) {
+    return <ManualUserSelector onConfirm={() => window.location.reload()} />;
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
