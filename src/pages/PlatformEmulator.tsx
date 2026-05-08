@@ -173,10 +173,27 @@ export default function PlatformEmulator() {
       });
 
       if (loginError) {
-        throw new Error(loginError.message || 'Falha na autenticação');
+        let detail = loginError.message || 'Falha na autenticação';
+        try {
+          const ctx = (loginError as { context?: Response }).context;
+          if (ctx && typeof ctx.json === 'function') {
+            const body = await ctx.json();
+            if (body?.details) {
+              try {
+                const parsed = JSON.parse(body.details);
+                detail = parsed.message || body.details;
+              } catch {
+                detail = body.details;
+              }
+            } else if (body?.error) {
+              detail = body.error;
+            }
+          }
+        } catch { /* ignore */ }
+        throw new Error(detail);
       }
 
-      if (loginData.error) {
+      if (loginData?.error) {
         throw new Error(loginData.error);
       }
 
