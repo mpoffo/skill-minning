@@ -63,6 +63,14 @@ export function useCheckAccess({
 
       if (invokeError) {
         console.error('CheckAccess invoke error:', invokeError);
+        // Stale/expired cached token — clear context so user is prompted again
+        const msg = (invokeError as { message?: string })?.message ?? '';
+        if (msg.includes('non-2xx') || msg.includes('401') || msg.includes('Unauthorized')) {
+          console.warn('Clearing stale platformContext from sessionStorage');
+          sessionStorage.removeItem('platformContext');
+          window.location.reload();
+          return;
+        }
         setError('Erro ao verificar permissão');
         setHasAccess(false);
         onAccessDenied?.();
