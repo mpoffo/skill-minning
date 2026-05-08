@@ -23,6 +23,32 @@ export function useSkills() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const ensureTenantUser = useCallback(async () => {
+    if (!tenantName || !userName) return false;
+
+    const { data: existingUser, error: fetchUserError } = await supabase
+      .from('tenant_users')
+      .select('id')
+      .eq('tenant_name', tenantName)
+      .eq('user_name', userName)
+      .maybeSingle();
+
+    if (fetchUserError) throw fetchUserError;
+    if (existingUser) return true;
+
+    const { error: insertUserError } = await supabase
+      .from('tenant_users')
+      .insert({
+        tenant_name: tenantName,
+        user_name: userName,
+        full_name: userName,
+        email: `${userName}@${tenantName}`,
+      });
+
+    if (insertUserError) throw insertUserError;
+    return true;
+  }, [tenantName, userName]);
+
   // Fetch user's skills
   const fetchUserSkills = useCallback(async () => {
     if (!tenantName || !userName) {
@@ -35,6 +61,8 @@ export function useSkills() {
 
     try {
       console.log('Fetching skills for:', { tenantName, userName });
+
+      await ensureTenantUser();
 
       const { data, error: fetchError } = await supabase
         .from('user_skills')
@@ -71,7 +99,7 @@ export function useSkills() {
     } finally {
       setIsLoading(false);
     }
-  }, [tenantName, userName]);
+  }, [tenantName, userName, ensureTenantUser]);
 
   // Add a skill
   const addSkill = useCallback(async (skillName: string, proficiency: number) => {
@@ -87,6 +115,8 @@ export function useSkills() {
     setIsLoading(true);
 
     try {
+      await ensureTenantUser();
+
       // First, check if skill exists or create it
       let { data: existingSkill } = await supabase
         .from('skills')
@@ -176,7 +206,7 @@ export function useSkills() {
     } finally {
       setIsLoading(false);
     }
-  }, [tenantName, userName]);
+  }, [tenantName, userName, ensureTenantUser]);
 
   // Update proficiency
   const updateProficiency = useCallback(async (userSkillId: string, proficiency: number) => {
