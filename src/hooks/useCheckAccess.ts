@@ -38,6 +38,18 @@ export function useCheckAccess({
   const checkAccess = useCallback(async () => {
     if (!isLoaded) return;
     
+    // Manual/demo context works like passwordless access and should not call Senior authorization.
+    if (accessToken === 'manual-context' || servicesUrl === 'manual-context') {
+      setHasAccess(true);
+      setIsChecking(false);
+      setError(null);
+      setDebugInfo({
+        request: { mode: 'manual-context', resource, permission },
+        response: { authorized: true },
+      });
+      return;
+    }
+    
     // If no auth context, deny access
     if (!accessToken || !servicesUrl) {
       console.log('No auth context available, denying access');
