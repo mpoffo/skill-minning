@@ -26,19 +26,26 @@ export function useSkills() {
   const ensureTenantUser = useCallback(async () => {
     if (!tenantName || !userName) return false;
 
-    const { error: upsertError } = await supabase
+    const { data: existingUser, error: fetchUserError } = await supabase
       .from('tenant_users')
-      .upsert({
+      .select('id')
+      .eq('tenant_name', tenantName)
+      .eq('user_name', userName)
+      .maybeSingle();
+
+    if (fetchUserError) throw fetchUserError;
+    if (existingUser) return true;
+
+    const { error: insertUserError } = await supabase
+      .from('tenant_users')
+      .insert({
         tenant_name: tenantName,
         user_name: userName,
         full_name: userName,
         email: `${userName}@${tenantName}`,
-      }, {
-        onConflict: 'tenant_name,user_name',
-        ignoreDuplicates: true,
       });
 
-    if (upsertError) throw upsertError;
+    if (insertUserError) throw insertUserError;
     return true;
   }, [tenantName, userName]);
 
