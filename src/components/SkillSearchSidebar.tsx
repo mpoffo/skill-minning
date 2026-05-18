@@ -272,7 +272,7 @@ export function SkillSearchSidebar({
             )}
 
             {!isSearching && (
-              <div className="grid grid-cols-1 gap-sml">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-sml auto-rows-fr">
                 {suggestions.map((skill) => (
                   <SkillSuggestionCard
                     key={skill.id}
