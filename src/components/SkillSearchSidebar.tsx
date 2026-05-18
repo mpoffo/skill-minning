@@ -179,7 +179,7 @@ export function SkillSearchSidebar({
       <aside className={cn(
         "fixed right-0 top-0 h-full w-full max-w-md bg-card border-l border-border shadow-dp16 z-50",
         "transform transition-transform duration-300",
-        "lg:relative lg:transform-none lg:shadow-none lg:z-auto",
+        "lg:relative lg:transform-none lg:shadow-none lg:z-auto lg:max-w-2xl xl:max-w-3xl",
         isOpen ? "translate-x-0" : "translate-x-full"
       )}>
         <div className="flex flex-col h-full">
@@ -272,7 +272,7 @@ export function SkillSearchSidebar({
             )}
 
             {!isSearching && (
-              <div className="grid grid-cols-1 gap-sml">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-sml auto-rows-fr">
                 {suggestions.map((skill) => (
                   <SkillSuggestionCard
                     key={skill.id}
