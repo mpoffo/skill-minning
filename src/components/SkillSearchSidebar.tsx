@@ -6,6 +6,7 @@ import { faStar as faStarRegular } from "@fortawesome/free-regular-svg-icons";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { StarRating } from "@/components/ui/star-rating";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { LinkedInImport } from "@/components/LinkedInImport";
 import { HCMImport } from "@/components/HCMImport";
 import { cn } from "@/lib/utils";
@@ -13,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { usePlatform } from "@/contexts/PlatformContext";
 import { UserSkill } from "@/hooks/useSkills";
 import { useDebounce } from "@/hooks/useDebounce";
+import { SKILL_CATEGORIES } from "@/data/skillSuggestions";
 
 interface SuggestedSkill {
   id: string;
