@@ -466,3 +466,73 @@ function SkillSuggestionCard({ skill, onAdd }: SkillSuggestionCardProps) {
     </div>
   );
 }
+
+interface CategorySuggestionsProps {
+  existingSkills: UserSkill[];
+  onAddSkill: (skill: SuggestedSkill, proficiency: number) => Promise<void>;
+}
+
+function CategorySuggestions({ existingSkills, onAddSkill }: CategorySuggestionsProps) {
+  const [activeCategory, setActiveCategory] = useState(SKILL_CATEGORIES[0]?.id);
+  const category = SKILL_CATEGORIES.find((c) => c.id === activeCategory) ?? SKILL_CATEGORIES[0];
+
+  const suggestionsForCategory: SuggestedSkill[] = category.skills.map((name, index) => {
+    const existing = existingSkills.find(
+      (s) => s.skillName.toLowerCase() === name.toLowerCase()
+    );
+    if (existing) {
+      return {
+        id: `cat-${category.id}-${existing.id}`,
+        name: existing.skillName,
+        alreadyOwned: true,
+        currentProficiency: existing.proficiency,
+      };
+    }
+    return {
+      id: `cat-${category.id}-${index}-${name}`,
+      name,
+    };
+  });
+
+  return (
+    <div className="flex-1 flex flex-col overflow-hidden">
+      {/* Category header */}
+      <div className="px-xmedium pt-xmedium pb-sml border-b border-border">
+        <div className="flex flex-wrap gap-xsmall">
+          {SKILL_CATEGORIES.map((cat) => (
+            <button
+              key={cat.id}
+              type="button"
+              onClick={() => setActiveCategory(cat.id)}
+              className={cn(
+                "px-sml py-xsmall rounded-full text-small transition-colors border",
+                activeCategory === cat.id
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-card text-foreground border-border hover:bg-grayscale-5"
+              )}
+            >
+              {cat.name}
+            </button>
+          ))}
+        </div>
+        <p className="text-small text-muted-foreground mt-sml">
+          Clique nas estrelas para adicionar a habilidade já com a proficiência.
+        </p>
+      </div>
+
+      {/* Skills grid */}
+      <div className="flex-1 overflow-y-auto p-xmedium">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-sml auto-rows-fr">
+          {suggestionsForCategory.map((skill) => (
+            <SkillSuggestionCard
+              key={skill.id}
+              skill={skill}
+              onAdd={onAddSkill}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
