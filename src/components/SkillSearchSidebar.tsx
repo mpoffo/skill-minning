@@ -6,6 +6,7 @@ import { faStar as faStarRegular } from "@fortawesome/free-regular-svg-icons";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { StarRating } from "@/components/ui/star-rating";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { LinkedInImport } from "@/components/LinkedInImport";
 import { HCMImport } from "@/components/HCMImport";
 import { cn } from "@/lib/utils";
@@ -13,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { usePlatform } from "@/contexts/PlatformContext";
 import { UserSkill } from "@/hooks/useSkills";
 import { useDebounce } from "@/hooks/useDebounce";
+import { SKILL_CATEGORIES } from "@/data/skillSuggestions";
 
 interface SuggestedSkill {
   id: string;
@@ -186,104 +188,121 @@ export function SkillSearchSidebar({
           {/* Header */}
           <div className="p-xmedium border-b border-border flex items-center justify-between">
             <h2 className="text-h3-caps text-foreground">
-              Buscar Habilidades
+              Adicionar Habilidades
             </h2>
             <Button variant="ghost" size="icon" onClick={onClose} className="lg:hidden">
               <X className="w-5 h-5" />
             </Button>
           </div>
 
-          {/* LinkedIn Import */}
-          <div className="p-xmedium border-b border-border">
-            <LinkedInImport
-              existingSkillNames={existingSkills.map(s => s.skillName)}
-              onSkillsExtracted={(skills) => {
-                const newSuggestions = skills.map((skill, index) => ({
-                  id: `linkedin-${index}-${skill.name}`,
-                  name: skill.name,
-                  origin: skill.origin,
-                }));
-                setSuggestions(prev => [...newSuggestions, ...prev]);
-              }}
-            />
-          </div>
-
-          {/* HCM-Mining Import */}
-          <div className="p-xmedium border-b border-border">
-            <HCMImport
-              existingSkillNames={existingSkills.map(s => s.skillName)}
-              onSkillsExtracted={(skills) => {
-                console.log('Skills received in sidebar:', skills);
-                const newSuggestions = skills.map((skill, index) => ({
-                  id: `hcm-${index}-${skill.name}`,
-                  name: skill.name,
-                  origin: skill.origin,
-                }));
-                console.log('New suggestions with origin:', newSuggestions);
-                setSuggestions(prev => [...newSuggestions, ...prev]);
-              }}
-            />
-          </div>
-
-          {/* Search Input */}
-          <div className="p-xmedium border-b border-border">
-            <div className="relative">
-              <Search className="absolute left-sml top-1/2 -translate-y-1/2 w-5 h-5 text-grayscale-50" />
-              <Input
-                value={searchTerm}
-                onChange={(e) => {
-                  setSearchTerm(e.target.value);
-                  fetchSuggestions(e.target.value);
-                }}
-                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                placeholder="Digite ou busque pela lupa"
-                className="pl-xbig pr-default"
-              />
-              {searchTerm && (
-                <button
-                  onClick={() => {
-                    setSearchTerm("");
-                    setSuggestions([]);
-                  }}
-                  className="absolute right-sml top-1/2 -translate-y-1/2 text-grayscale-50 hover:text-grayscale-70"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
+          <Tabs defaultValue="buscar" className="flex-1 flex flex-col overflow-hidden">
+            <div className="px-xmedium pt-xmedium">
+              <TabsList className="grid grid-cols-2 w-full">
+                <TabsTrigger value="buscar">Buscar / Importar</TabsTrigger>
+                <TabsTrigger value="sugestoes">Ver sugestões</TabsTrigger>
+              </TabsList>
             </div>
-            <p className="text-small text-muted-foreground mt-xsmall">
-              Busca semântica: digite termos, assuntos ou habilidades específicas
-            </p>
-          </div>
 
-          {/* Results */}
-          <div className="flex-1 overflow-y-auto p-xmedium">
-            {isSearching && (
-              <div className="flex items-center justify-center py-big">
-                <Loader2 className="w-6 h-6 animate-spin text-primary" />
-                <span className="ml-sml text-label text-muted-foreground">Buscando...</span>
+            <TabsContent value="buscar" className="flex-1 overflow-y-auto mt-0">
+              {/* LinkedIn Import */}
+              <div className="p-xmedium border-b border-border">
+                <LinkedInImport
+                  existingSkillNames={existingSkills.map(s => s.skillName)}
+                  onSkillsExtracted={(skills) => {
+                    const newSuggestions = skills.map((skill, index) => ({
+                      id: `linkedin-${index}-${skill.name}`,
+                      name: skill.name,
+                      origin: skill.origin,
+                    }));
+                    setSuggestions(prev => [...newSuggestions, ...prev]);
+                  }}
+                />
               </div>
-            )}
 
-            {!isSearching && searchTerm && suggestions.length === 0 && (
-              <div className="text-center py-big text-muted-foreground text-label">
-                Nada sobre essa habilidade
+              {/* HCM-Mining Import */}
+              <div className="p-xmedium border-b border-border">
+                <HCMImport
+                  existingSkillNames={existingSkills.map(s => s.skillName)}
+                  onSkillsExtracted={(skills) => {
+                    const newSuggestions = skills.map((skill, index) => ({
+                      id: `hcm-${index}-${skill.name}`,
+                      name: skill.name,
+                      origin: skill.origin,
+                    }));
+                    setSuggestions(prev => [...newSuggestions, ...prev]);
+                  }}
+                />
               </div>
-            )}
 
-            {!isSearching && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-sml auto-rows-fr">
-                {suggestions.map((skill) => (
-                  <SkillSuggestionCard
-                    key={skill.id}
-                    skill={skill}
-                    onAdd={handleAddSkill}
+              {/* Search Input */}
+              <div className="p-xmedium border-b border-border">
+                <div className="relative">
+                  <Search className="absolute left-sml top-1/2 -translate-y-1/2 w-5 h-5 text-grayscale-50" />
+                  <Input
+                    value={searchTerm}
+                    onChange={(e) => {
+                      setSearchTerm(e.target.value);
+                      fetchSuggestions(e.target.value);
+                    }}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                    placeholder="Digite ou busque pela lupa"
+                    className="pl-xbig pr-default"
                   />
-                ))}
+                  {searchTerm && (
+                    <button
+                      onClick={() => {
+                        setSearchTerm("");
+                        setSuggestions([]);
+                      }}
+                      className="absolute right-sml top-1/2 -translate-y-1/2 text-grayscale-50 hover:text-grayscale-70"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+                <p className="text-small text-muted-foreground mt-xsmall">
+                  Busca semântica: digite termos, assuntos ou habilidades específicas
+                </p>
               </div>
-            )}
-          </div>
+
+              {/* Results */}
+              <div className="p-xmedium">
+                {isSearching && (
+                  <div className="flex items-center justify-center py-big">
+                    <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                    <span className="ml-sml text-label text-muted-foreground">Buscando...</span>
+                  </div>
+                )}
+
+                {!isSearching && searchTerm && suggestions.length === 0 && (
+                  <div className="text-center py-big text-muted-foreground text-label">
+                    Nada sobre essa habilidade
+                  </div>
+                )}
+
+                {!isSearching && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-sml auto-rows-fr">
+                    {suggestions.map((skill) => (
+                      <SkillSuggestionCard
+                        key={skill.id}
+                        skill={skill}
+                        onAdd={handleAddSkill}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="sugestoes" className="flex-1 overflow-hidden mt-0 flex flex-col">
+              <CategorySuggestions
+                existingSkills={existingSkills}
+                onAddSkill={handleAddSkill}
+              />
+            </TabsContent>
+          </Tabs>
         </div>
+
 
         {/* Similarity Confirmation Dialog */}
         {confirmSimilar && (
@@ -447,3 +466,73 @@ function SkillSuggestionCard({ skill, onAdd }: SkillSuggestionCardProps) {
     </div>
   );
 }
+
+interface CategorySuggestionsProps {
+  existingSkills: UserSkill[];
+  onAddSkill: (skill: SuggestedSkill, proficiency: number) => Promise<void>;
+}
+
+function CategorySuggestions({ existingSkills, onAddSkill }: CategorySuggestionsProps) {
+  const [activeCategory, setActiveCategory] = useState(SKILL_CATEGORIES[0]?.id);
+  const category = SKILL_CATEGORIES.find((c) => c.id === activeCategory) ?? SKILL_CATEGORIES[0];
+
+  const suggestionsForCategory: SuggestedSkill[] = category.skills.map((name, index) => {
+    const existing = existingSkills.find(
+      (s) => s.skillName.toLowerCase() === name.toLowerCase()
+    );
+    if (existing) {
+      return {
+        id: `cat-${category.id}-${existing.id}`,
+        name: existing.skillName,
+        alreadyOwned: true,
+        currentProficiency: existing.proficiency,
+      };
+    }
+    return {
+      id: `cat-${category.id}-${index}-${name}`,
+      name,
+    };
+  });
+
+  return (
+    <div className="flex-1 flex flex-col overflow-hidden">
+      {/* Category header */}
+      <div className="px-xmedium pt-xmedium pb-sml border-b border-border">
+        <div className="flex flex-wrap gap-xsmall">
+          {SKILL_CATEGORIES.map((cat) => (
+            <button
+              key={cat.id}
+              type="button"
+              onClick={() => setActiveCategory(cat.id)}
+              className={cn(
+                "px-sml py-xsmall rounded-full text-small transition-colors border",
+                activeCategory === cat.id
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-card text-foreground border-border hover:bg-grayscale-5"
+              )}
+            >
+              {cat.name}
+            </button>
+          ))}
+        </div>
+        <p className="text-small text-muted-foreground mt-sml">
+          Clique nas estrelas para adicionar a habilidade já com a proficiência.
+        </p>
+      </div>
+
+      {/* Skills grid */}
+      <div className="flex-1 overflow-y-auto p-xmedium">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-sml auto-rows-fr">
+          {suggestionsForCategory.map((skill) => (
+            <SkillSuggestionCard
+              key={skill.id}
+              skill={skill}
+              onAdd={onAddSkill}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
