@@ -44,6 +44,7 @@ const App = () => (
             </PlatformProvider>
           } />
           <Route path="/job-anonymization" element={<JobAnonymization />} />
+          <Route path="/admin/skill-catalog" element={<SkillCatalogAdmin />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
