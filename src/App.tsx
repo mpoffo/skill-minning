@@ -11,6 +11,7 @@ import PlatformEmulator from "./pages/PlatformEmulator";
 import BatchProcessing from "./pages/BatchProcessing";
 import JobAnonymization from "./pages/JobAnonymization";
 import NotFound from "./pages/NotFound";
+import SkillCatalogAdmin from "./pages/SkillCatalogAdmin";
 
 const queryClient = new QueryClient();
 
