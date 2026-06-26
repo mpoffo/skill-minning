@@ -11,6 +11,7 @@ import PlatformEmulator from "./pages/PlatformEmulator";
 import BatchProcessing from "./pages/BatchProcessing";
 import JobAnonymization from "./pages/JobAnonymization";
 import NotFound from "./pages/NotFound";
+import SkillCatalogAdmin from "./pages/SkillCatalogAdmin";
 
 const queryClient = new QueryClient();
 
@@ -43,6 +44,7 @@ const App = () => (
             </PlatformProvider>
           } />
           <Route path="/job-anonymization" element={<JobAnonymization />} />
+          <Route path="/admin/skill-catalog" element={<SkillCatalogAdmin />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
