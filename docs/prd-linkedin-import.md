@@ -103,10 +103,47 @@ Habilidades classificadas em uma das seguintes **origens**:
 - CORS liberado (POST + OPTIONS).
 - Recebe `multipart/form-data` com campo `file`.
 - Converte PDF para base64 e envia ao **Lovable AI Gateway** (`google/gemini-2.5-flash`) usando o tipo `file` (PDF nativo — não OCR).
-- Prompt determinístico com as regras de §4 (extração + classificação de origem).
+- Prompt determinístico com as regras de §4 (extração + classificação de origem) — ver §5.4.
 - Espera resposta JSON `{"skills":[{"name":"…","origin":"…"}, …]}`.
 - Parsing tolerante: regex extrai o bloco JSON mesmo se vier com markdown/texto ao redor.
 - Compatibilidade retroativa: se `skills` vier como array de strings, converte para objetos `{ name, origin: 'linkedin' }`.
+
+### 5.4 Prompt exato enviado ao modelo
+
+Enviado como **uma única mensagem `user`** multimodal, contendo o texto abaixo + o PDF anexado (`type: "file"`, base64 `data:application/pdf;base64,…`). Modelo: `google/gemini-2.5-flash`. Sem `system message`.
+
+````text
+Você está analisando um PDF de perfil do LinkedIn para extrair HABILIDADES TÉCNICAS E COMPORTAMENTAIS que a pessoa POSSUI.
+
+ONDE PROCURAR E CLASSIFICAR (use estes valores exatos para "origin"):
+- "competencias" = Seção "Competências" / "Skills" / "Principais competências"
+- "tecnologias" = Tecnologias e ferramentas mencionadas que a pessoa UTILIZOU
+- "metodologias" = Metodologias que a pessoa APLICOU
+- "certificacoes" = Certificações obtidas
+- "idiomas" = Idiomas
+- "experiencia" = Habilidades mencionadas em experiências profissionais
+
+REGRAS CRÍTICAS DE EXTRAÇÃO:
+1. Extraia APENAS habilidades que a pessoa POSSUI ou DOMINA
+2. NÃO extraia:
+   - Públicos-alvo ou destinatários (ex: "C-level", "clientes", "stakeholders")
+   - Nomes de empresas, produtos ou projetos
+   - Resultados ou entregas (ex: "aumento de vendas", "redução de custos")
+   - Cargos ou títulos (ex: "gerente", "coordenador")
+   - Ações genéricas (ex: "desenvolvimento", "planejamento", "execução")
+3. Diferencie entre:
+   - "Apresentou para C-level" → NÃO é habilidade
+   - "Liderança de equipe" → É habilidade
+   - "Entregou sistema para clientes" → NÃO é habilidade
+   - "Python" → É habilidade
+4. Normalize nomes (ex: "Python programming" → "Python")
+5. Remova duplicatas
+6. NÃO invente habilidades não mencionadas
+7. Classifique cada habilidade com sua ORIGEM (de onde foi extraída no documento)
+
+Responda APENAS com JSON:
+{"skills": [{"name": "Nome da Habilidade", "origin": "competencias"}, {"name": "Outra Habilidade", "origin": "tecnologias"}, ...]}
+````
 
 ### 5.3 Limites e Erros
 
