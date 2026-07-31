@@ -33,6 +33,13 @@ interface UserDetails {
   hardSkills?: string[];
 }
 
+export const TIER_LABELS = [
+  "Altamente aderentes",
+  "Boa aderência",
+  "Aderência parcial",
+  "Aderência complementar",
+] as const;
+
 interface RankedUserCardProps {
   rank: number;
   userName: string;
@@ -42,6 +49,8 @@ interface RankedUserCardProps {
   matchedSkills: MatchedSkill[];
   justification?: string;
   details?: UserDetails;
+  tier?: number;
+  requiredSkillNames?: string[];
 }
 
 export function RankedUserCard({
@@ -53,71 +62,43 @@ export function RankedUserCard({
   matchedSkills,
   justification,
   details,
+  tier = 0,
+  requiredSkillNames = [],
 }: RankedUserCardProps) {
   const [isOpen, setIsOpen] = useState(false);
 
-  const getRankIcon = () => {
-    switch (rank) {
-      case 0:
-        return (
-          <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-            <span className="text-white font-bold text-sm">1</span>
-          </div>
-        );
-      case 1:
-        return (
-          <div className="w-8 h-8 rounded-full bg-grayscale-40 flex items-center justify-center">
-            <span className="text-white font-bold text-sm">2</span>
-          </div>
-        );
-      case 2:
-        return (
-          <div className="w-8 h-8 rounded-full bg-feedback-warning flex items-center justify-center">
-            <span className="text-white font-bold text-sm">3</span>
-          </div>
-        );
-      default:
-        return (
-          <div className="w-8 h-8 rounded-full bg-grayscale-20 flex items-center justify-center">
-            <span className="text-foreground font-bold text-sm">{rank + 1}</span>
-          </div>
-        );
-    }
-  };
+  const normalize = (value: string) =>
+    value
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .trim();
 
-  const getMatchBadgeColor = () => {
-    if (matchScore >= 80) return "border-[#22c55e] text-[#22c55e] bg-transparent";
-    if (matchScore >= 60) return "border-feedback-warning text-feedback-warning bg-transparent";
-    return "border-feedback-error text-feedback-error bg-transparent";
-  };
+  const matchedNames = matchedSkills.map((s) => s.skillName);
+  const matchedSet = new Set(matchedNames.map(normalize));
+  const requiredSet = new Set(requiredSkillNames.map(normalize));
 
-  const getMatchBarColor = () => {
-    if (matchScore >= 80) return "bg-[#22c55e]";
-    if (matchScore >= 60) return "bg-feedback-warning";
-    return "bg-feedback-error";
-  };
+  const gapSkills = requiredSkillNames.filter((name) => !matchedSet.has(normalize(name)));
+  const extraSkills = (details?.hardSkills || []).filter(
+    (name) => !matchedSet.has(normalize(name)) && !requiredSet.has(normalize(name))
+  );
 
-  const getMatchLabel = () => {
-    if (matchScore >= 80) return "Alta";
-    if (matchScore >= 60) return "Média";
-    return "Baixa";
-  };
+  const tierStyles = [
+    { dot: "bg-[#22c55e]", border: "border-[#22c55e]/50", text: "text-[#22c55e]" },
+    { dot: "bg-primary", border: "border-primary/40", text: "text-primary" },
+    { dot: "bg-feedback-warning", border: "border-feedback-warning/40", text: "text-feedback-warning" },
+    { dot: "bg-grayscale-40", border: "border-border", text: "text-muted-foreground" },
+  ][Math.min(tier, 3)];
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-      <div
-        className={cn(
-          "rounded-lg border bg-card transition-all shadow-sm",
-          rank === 0 && "border-primary",
-          rank === 1 && "border-grayscale-40",
-          rank === 2 && "border-feedback-warning",
-          rank > 2 && "border-border"
-        )}
-      >
+      <div className={cn("rounded-lg border bg-card transition-all shadow-sm", tierStyles.border)}>
         <CollapsibleTrigger className="w-full">
           <div className="flex items-center justify-between p-4 cursor-pointer hover:bg-grayscale-5/50 transition-colors rounded-lg">
             <div className="flex items-center gap-3">
-              {getRankIcon()}
+              <div className="w-8 h-8 rounded-full bg-grayscale-10 flex items-center justify-center shrink-0">
+                <span className="text-foreground font-semibold text-sm">{rank + 1}</span>
+              </div>
               <div className="text-left">
                 <h4 className="text-sm font-semibold text-foreground">
                   {fullName || userName}
@@ -131,16 +112,16 @@ export function RankedUserCard({
             </div>
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2">
-                <div className="text-right">
-                  <span className="text-2xl font-bold text-foreground">
-                    {Math.round(matchScore)}
-                  </span>
-                  <p className="text-xs text-muted-foreground">Match</p>
-                </div>
-                <div className={cn("h-10 w-1 rounded-full", getMatchBarColor())} />
-                <Badge variant="outline" className={cn("font-medium", getMatchBadgeColor())}>
-                  {getMatchLabel()}
-                </Badge>
+                <span className={cn("h-2 w-2 rounded-full", tierStyles.dot)} />
+                <span className={cn("text-xs font-medium", tierStyles.text)}>
+                  {TIER_LABELS[Math.min(tier, 3)]}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  · {matchedSkills.length}/{requiredSkillNames.length || matchedSkills.length} skills
+                </span>
+                <span className="text-[11px] text-muted-foreground/70 tabular-nums">
+                  ({Math.round(matchScore)})
+                </span>
               </div>
               <FontAwesomeIcon
                 icon={isOpen ? faChevronUp : faChevronDown}
@@ -149,6 +130,7 @@ export function RankedUserCard({
             </div>
           </div>
         </CollapsibleTrigger>
+
 
         <CollapsibleContent>
           <div className="px-4 pb-4 pt-0 border-t border-border">
