@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { RequiredSkillCard } from "@/components/RequiredSkillCard";
-import { RankedUserCard } from "@/components/RankedUserCard";
+import { RankedUserCard, TIER_LABELS } from "@/components/RankedUserCard";
 import { AIRankedCandidateCard } from "@/components/AIRankedCandidateCard";
 import { AISearchResults } from "@/components/AISearchResults";
 import { AIInsightsCard } from "@/components/AIInsightsCard";
@@ -721,21 +721,43 @@ export default function TalentMining() {
                         </div>
                       </div>
                     ) : (
-                      <div className="space-y-sml">
-                        {rankedUsers.map((user, index) => (
-                          <RankedUserCard
-                            key={user.userId}
-                            rank={index}
-                            userName={user.userName}
-                            fullName={user.fullName}
-                            leaderName={user.leaderName}
-                            matchScore={user.matchScore}
-                            matchedSkills={user.matchedSkills}
-                            justification={user.justification}
-                            details={user.details}
-                          />
-                        ))}
+                      <div className="space-y-medium">
+                        {(() => {
+                          const perTier = Math.ceil(rankedUsers.length / 4) || 1;
+                          const tiers: typeof rankedUsers[] = [[], [], [], []];
+                          rankedUsers.forEach((u, i) => {
+                            tiers[Math.min(Math.floor(i / perTier), 3)].push(u);
+                          });
+                          return tiers.map((group, tierIndex) =>
+                            group.length === 0 ? null : (
+                              <div key={tierIndex} className="space-y-sml">
+                                <p className="text-small font-semibold text-muted-foreground uppercase tracking-wide">
+                                  {TIER_LABELS[tierIndex]}
+                                </p>
+                                {group.map((user) => {
+                                  const index = rankedUsers.indexOf(user);
+                                  return (
+                                    <RankedUserCard
+                                      key={user.userId}
+                                      rank={index}
+                                      tier={tierIndex}
+                                      requiredSkillNames={requiredSkills.map((s) => s.name)}
+                                      userName={user.userName}
+                                      fullName={user.fullName}
+                                      leaderName={user.leaderName}
+                                      matchScore={user.matchScore}
+                                      matchedSkills={user.matchedSkills}
+                                      justification={user.justification}
+                                      details={user.details}
+                                    />
+                                  );
+                                })}
+                              </div>
+                            )
+                          );
+                        })()}
                       </div>
+
                     )}
                   </CardContent>
                 </Card>

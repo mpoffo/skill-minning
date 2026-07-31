@@ -2,6 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { usePlatform } from '@/contexts/PlatformContext';
 
+// Demo mode: permission control is turned off across the app.
+const PERMISSIONS_DISABLED = true;
+
 interface UseCheckAccessOptions {
   resource: string;
   permission: string;
@@ -36,6 +39,18 @@ export function useCheckAccess({
   });
 
   const checkAccess = useCallback(async () => {
+    // Permission control is disabled (demo mode): everyone navigates freely.
+    if (PERMISSIONS_DISABLED) {
+      setHasAccess(true);
+      setIsChecking(false);
+      setError(null);
+      setDebugInfo({
+        request: { mode: 'permissions-disabled', resource, permission },
+        response: { authorized: true },
+      });
+      return;
+    }
+
     if (!isLoaded) return;
     
     // Manual/demo context works like passwordless access and should not call Senior authorization.

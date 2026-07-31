@@ -154,84 +154,39 @@ export default function PlatformEmulator() {
   };
 
   const handleLogin = async () => {
-    if (!loginUsername || !loginPassword) {
-      toast.error("Preencha usuário e senha");
+    if (!loginUsername) {
+      toast.error("Informe o usuário");
       return;
     }
 
     setIsLoggingIn(true);
-    
+
     try {
-      // Call login via edge function gateway
-      const { data: loginData, error: loginError } = await supabase.functions.invoke('platform-gateway', {
-        body: {
-          action: 'login',
-          servicesUrl,
-          username: loginUsername,
-          password: loginPassword,
-        },
-      });
+      // Demo mode: no password validation — we simply assume the informed user.
+      const user = loginUsername.trim();
+      const [localPart, domain] = user.includes("@") ? user.split("@") : [user, tenantName || "senior.com.br"];
 
-      if (loginError) {
-        let detail = loginError.message || 'Falha na autenticação';
-        try {
-          const ctx = (loginError as { context?: Response }).context;
-          if (ctx && typeof ctx.json === 'function') {
-            const body = await ctx.json();
-            if (body?.details) {
-              try {
-                const parsed = JSON.parse(body.details);
-                detail = parsed.message || body.details;
-              } catch {
-                detail = body.details;
-              }
-            } else if (body?.error) {
-              detail = body.error;
-            }
-          }
-        } catch { /* ignore */ }
-        throw new Error(detail);
-      }
+      setAccessToken("manual-context");
+      setUsername(localPart);
+      setFullName(
+        localPart
+          .split(/[._-]+/)
+          .filter(Boolean)
+          .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+          .join(" ")
+      );
+      setEmail(`${localPart}@${domain}`);
+      setTenantName(domain);
 
-      if (loginData?.error) {
-        throw new Error(loginData.error);
-      }
-
-      const tokenData = JSON.parse(loginData.jsonToken);
-      const token = tokenData.access_token;
-
-      // Call getUser via edge function gateway
-      const { data: userData, error: userError } = await supabase.functions.invoke('platform-gateway', {
-        body: {
-          action: 'getUser',
-          servicesUrl,
-          accessToken: token,
-        },
-      });
-
-      if (userError) {
-        throw new Error(userError.message || 'Falha ao obter dados do usuário');
-      }
-
-      if (userData.error) {
-        throw new Error(userData.error);
-      }
-
-      // Fill in the form fields
-      setAccessToken(token);
-      setUsername(userData.username);
-      setFullName(userData.fullName);
-      setEmail(userData.email);
-      setTenantName(userData.tenantName);
-
-      toast.success("Login realizado com sucesso!");
+      toast.success(`Usuário assumido: ${localPart}`);
     } catch (error) {
       console.error('Login error:', error);
-      toast.error(error instanceof Error ? error.message : "Erro ao fazer login");
+      toast.error(error instanceof Error ? error.message : "Erro ao assumir usuário");
     } finally {
       setIsLoggingIn(false);
     }
   };
+
 
   const saveContextAndNavigate = (path: string) => {
     if (!username || !tenantName) {
