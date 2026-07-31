@@ -34,11 +34,14 @@ interface UserDetails {
 }
 
 export const TIER_LABELS = [
-  "Altamente aderentes",
-  "Boa aderência",
-  "Aderência parcial",
-  "Aderência complementar",
+  "Melhores correspondências",
+  "Demais resultados",
+  "Demais resultados",
+  "Demais resultados",
 ] as const;
+
+const getPositionLabel = (rank: number) =>
+  rank === 0 ? "Melhor correspondência encontrada" : `${rank + 1}º resultado`;
 
 interface RankedUserCardProps {
   rank: number;
@@ -83,53 +86,75 @@ export function RankedUserCard({
     (name) => !matchedSet.has(normalize(name)) && !requiredSet.has(normalize(name))
   );
 
-  const tierStyles = [
-    { dot: "bg-[#22c55e]", border: "border-[#22c55e]/50", text: "text-[#22c55e]" },
-    { dot: "bg-primary", border: "border-primary/40", text: "text-primary" },
-    { dot: "bg-feedback-warning", border: "border-feedback-warning/40", text: "text-feedback-warning" },
-    { dot: "bg-grayscale-40", border: "border-border", text: "text-muted-foreground" },
-  ][Math.min(tier, 3)];
+  const totalRequired = requiredSkillNames.length || matchedSkills.length;
+  const isTop = rank === 0;
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-      <div className={cn("rounded-lg border bg-card transition-all shadow-sm", tierStyles.border)}>
+      <div
+        className={cn(
+          "rounded-lg border bg-card transition-all shadow-sm",
+          isTop ? "border-primary/60" : "border-border"
+        )}
+      >
         <CollapsibleTrigger className="w-full">
-          <div className="flex items-center justify-between p-4 cursor-pointer hover:bg-grayscale-5/50 transition-colors rounded-lg">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-grayscale-10 flex items-center justify-center shrink-0">
-                <span className="text-foreground font-semibold text-sm">{rank + 1}</span>
+          <div className="flex items-start justify-between gap-3 p-4 cursor-pointer hover:bg-grayscale-5/50 transition-colors rounded-lg">
+            <div className="flex items-start gap-3 min-w-0">
+              <div
+                className={cn(
+                  "w-8 h-8 rounded-full flex items-center justify-center shrink-0",
+                  isTop ? "bg-primary" : "bg-grayscale-10"
+                )}
+              >
+                <span className={cn("font-semibold text-sm", isTop ? "text-white" : "text-foreground")}>
+                  {rank + 1}
+                </span>
               </div>
-              <div className="text-left">
+              <div className="text-left min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span
+                    className={cn(
+                      "text-[11px] font-semibold uppercase tracking-wide",
+                      isTop ? "text-primary" : "text-muted-foreground"
+                    )}
+                  >
+                    {isTop ? "🥇 " : ""}
+                    {getPositionLabel(rank)}
+                  </span>
+                </div>
                 <h4 className="text-sm font-semibold text-foreground">
                   {fullName || userName}
                 </h4>
                 {leaderName && (
-                  <span className="text-xs text-muted-foreground">
-                    {leaderName}
-                  </span>
+                  <span className="text-xs text-muted-foreground">{leaderName}</span>
                 )}
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2">
+                  <span className="text-xs font-medium text-[#166534]">
+                    Atende {matchedSkills.length} de {totalRequired} requisitos
+                  </span>
+                  {gapSkills.length > 0 && (
+                    <span className="text-xs text-muted-foreground">
+                      {gapSkills.length} {gapSkills.length === 1 ? "gap identificado" : "gaps identificados"}
+                    </span>
+                  )}
+                  {extraSkills.length > 0 && (
+                    <span className="text-xs text-muted-foreground">
+                      {extraSkills.length} {extraSkills.length === 1 ? "habilidade adicional" : "habilidades adicionais"}
+                    </span>
+                  )}
+                </div>
+                <span className="block text-[11px] text-muted-foreground/70 tabular-nums mt-1">
+                  Compatibilidade calculada: {Math.round(matchScore)}%
+                </span>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2">
-                <span className={cn("h-2 w-2 rounded-full", tierStyles.dot)} />
-                <span className={cn("text-xs font-medium", tierStyles.text)}>
-                  {TIER_LABELS[Math.min(tier, 3)]}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  · {matchedSkills.length}/{requiredSkillNames.length || matchedSkills.length} skills
-                </span>
-                <span className="text-[11px] text-muted-foreground/70 tabular-nums">
-                  ({Math.round(matchScore)})
-                </span>
-              </div>
-              <FontAwesomeIcon
-                icon={isOpen ? faChevronUp : faChevronDown}
-                className="text-muted-foreground"
-              />
-            </div>
+            <FontAwesomeIcon
+              icon={isOpen ? faChevronUp : faChevronDown}
+              className="text-muted-foreground mt-1"
+            />
           </div>
         </CollapsibleTrigger>
+
 
 
         <CollapsibleContent>
