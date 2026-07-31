@@ -141,26 +141,74 @@ export function RankedUserCard({
               </p>
             )}
 
-            {/* Skills */}
-            {(details?.hardSkills && details.hardSkills.length > 0) || matchedSkills.length > 0 ? (
+            {/* Skills — matched / gaps / extras */}
+            {matchedSkills.length > 0 && (
               <div className="mb-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <FontAwesomeIcon icon={faGrip} className="text-muted-foreground text-sm" />
-                  <span className="text-sm font-semibold text-foreground">Skills</span>
+                  <FontAwesomeIcon icon={faGrip} className="text-[#22c55e] text-sm" />
+                  <span className="text-sm font-semibold text-foreground">
+                    Habilidades que atendem ao pedido ({matchedSkills.length})
+                  </span>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {(details?.hardSkills || matchedSkills.map(s => s.skillName)).map((skill, idx) => (
-                    <Badge 
-                      key={idx} 
-                      variant="secondary" 
-                      className="bg-[#e8f4fc] text-[#1e3a5f] border-0 font-normal"
+                  {matchedSkills.map((skill, idx) => (
+                    <Badge
+                      key={idx}
+                      variant="secondary"
+                      className="bg-[#22c55e]/10 text-[#166534] border-0 font-normal"
                     >
-                      {typeof skill === 'string' ? skill : skill}
+                      {skill.skillName}
+                      {skill.userProficiency ? ` · ${skill.userProficiency}★` : ""}
                     </Badge>
                   ))}
                 </div>
               </div>
-            ) : null}
+            )}
+
+            {gapSkills.length > 0 && (
+              <div className="mb-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <FontAwesomeIcon icon={faGrip} className="text-muted-foreground text-sm" />
+                  <span className="text-sm font-semibold text-foreground">
+                    Gaps em relação ao pedido ({gapSkills.length})
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {gapSkills.map((skill, idx) => (
+                    <Badge
+                      key={idx}
+                      variant="outline"
+                      className="border-dashed text-muted-foreground font-normal"
+                    >
+                      {skill}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {extraSkills.length > 0 && (
+              <div className="mb-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <FontAwesomeIcon icon={faGrip} className="text-primary text-sm" />
+                  <span className="text-sm font-semibold text-foreground">
+                    Habilidades adicionais ({extraSkills.length})
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {extraSkills.map((skill, idx) => (
+                    <Badge
+                      key={idx}
+                      variant="secondary"
+                      className="bg-[#e8f4fc] text-[#1e3a5f] border-0 font-normal"
+                    >
+                      {skill}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
 
             {/* Certifications */}
             {details?.certifications && details.certifications.length > 0 && (
