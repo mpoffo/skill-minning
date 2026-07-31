@@ -37,7 +37,7 @@ export function useCheckAccess({
 
   const checkAccess = useCallback(async () => {
     // Permission control is disabled (demo mode): everyone navigates freely.
-    if (true) {
+    if (PERMISSIONS_DISABLED) {
       setHasAccess(true);
       setIsChecking(false);
       setError(null);
