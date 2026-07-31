@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { RequiredSkillCard } from "@/components/RequiredSkillCard";
-import { RankedUserCard } from "@/components/RankedUserCard";
+import { RankedUserCard, TIER_LABELS } from "@/components/RankedUserCard";
 import { AIRankedCandidateCard } from "@/components/AIRankedCandidateCard";
 import { AISearchResults } from "@/components/AISearchResults";
 import { AIInsightsCard } from "@/components/AIInsightsCard";
