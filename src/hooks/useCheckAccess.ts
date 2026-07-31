@@ -2,6 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { usePlatform } from '@/contexts/PlatformContext';
 
+// Demo mode: permission control is turned off across the app.
+const PERMISSIONS_DISABLED = true;
+
 interface UseCheckAccessOptions {
   resource: string;
   permission: string;
