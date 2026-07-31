@@ -51,99 +51,72 @@ export function AIRankedCandidateCard({ candidate }: AIRankedCandidateCardProps)
   const displayName = parts.length > 1 ? parts.slice(1).join(" - ") : candidate.person_identifier;
   const position = parts.length > 1 ? parts[0] : "";
 
-  const getRankIcon = () => {
-    switch (candidate.rank) {
-      case 1:
-        return (
-          <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-            <span className="text-white font-bold text-sm">1</span>
-          </div>
-        );
-      case 2:
-        return (
-          <div className="w-8 h-8 rounded-full bg-grayscale-40 flex items-center justify-center">
-            <span className="text-white font-bold text-sm">2</span>
-          </div>
-        );
-      case 3:
-        return (
-          <div className="w-8 h-8 rounded-full bg-feedback-warning flex items-center justify-center">
-            <span className="text-white font-bold text-sm">3</span>
-          </div>
-        );
-      default:
-        return (
-          <div className="w-8 h-8 rounded-full bg-grayscale-20 flex items-center justify-center">
-            <span className="text-foreground font-bold text-sm">{candidate.rank}</span>
-          </div>
-        );
-    }
-  };
+  const isTop = candidate.rank === 1;
+  const positionLabel = isTop
+    ? "🥇 Melhor correspondência encontrada"
+    : `${candidate.rank}º resultado`;
 
-  const getMatchBadgeColor = () => {
-    if (candidate.match_score >= 80) return "border-[#22c55e] text-[#22c55e] bg-transparent";
-    if (candidate.match_score >= 60) return "border-feedback-warning text-feedback-warning bg-transparent";
-    return "border-feedback-error text-feedback-error bg-transparent";
-  };
-
-  const getMatchBarColor = () => {
-    if (candidate.match_score >= 80) return "bg-[#22c55e]";
-    if (candidate.match_score >= 60) return "bg-feedback-warning";
-    return "bg-feedback-error";
-  };
-
-  const getMatchLabel = () => {
-    if (candidate.match_score >= 80) return "Alta";
-    if (candidate.match_score >= 60) return "Média";
-    return "Baixa";
-  };
+  const skillsCount = candidate.evidence.hard_skills.length;
+  const gapsCount = candidate.gaps.length;
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
       <div
         className={cn(
           "rounded-lg border bg-card transition-all shadow-sm",
-          candidate.rank === 1 && "border-primary",
-          candidate.rank === 2 && "border-grayscale-40",
-          candidate.rank === 3 && "border-feedback-warning",
-          candidate.rank > 3 && "border-border"
+          isTop ? "border-primary/60" : "border-border"
         )}
       >
         <CollapsibleTrigger className="w-full">
-          <div className="flex items-center justify-between p-4 cursor-pointer hover:bg-grayscale-5/50 transition-colors rounded-lg">
-            <div className="flex items-center gap-3">
-              {getRankIcon()}
-              <div className="text-left">
-                <h4 className="text-sm font-semibold text-foreground">
-                  {displayName}
-                </h4>
-                {position && (
-                  <span className="text-xs text-muted-foreground">
-                    {position}
-                  </span>
+          <div className="flex items-start justify-between gap-3 p-4 cursor-pointer hover:bg-grayscale-5/50 transition-colors rounded-lg">
+            <div className="flex items-start gap-3 min-w-0">
+              <div
+                className={cn(
+                  "w-8 h-8 rounded-full flex items-center justify-center shrink-0",
+                  isTop ? "bg-primary" : "bg-grayscale-10"
                 )}
+              >
+                <span className={cn("font-bold text-sm", isTop ? "text-white" : "text-foreground")}>
+                  {candidate.rank}
+                </span>
               </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2">
-                <div className="text-right">
-                  <span className="text-2xl font-bold text-foreground">
-                    {Math.round(candidate.match_score)}
-                  </span>
-                  <p className="text-xs text-muted-foreground">Match</p>
+              <div className="text-left min-w-0">
+                <span
+                  className={cn(
+                    "text-[11px] font-semibold uppercase tracking-wide",
+                    isTop ? "text-primary" : "text-muted-foreground"
+                  )}
+                >
+                  {positionLabel}
+                </span>
+                <h4 className="text-sm font-semibold text-foreground">{displayName}</h4>
+                {position && (
+                  <span className="text-xs text-muted-foreground">{position}</span>
+                )}
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2">
+                  {skillsCount > 0 && (
+                    <span className="text-xs font-medium text-[#166534]">
+                      {skillsCount} {skillsCount === 1 ? "habilidade evidenciada" : "habilidades evidenciadas"}
+                    </span>
+                  )}
+                  {gapsCount > 0 && (
+                    <span className="text-xs text-muted-foreground">
+                      {gapsCount} {gapsCount === 1 ? "gap identificado" : "gaps identificados"}
+                    </span>
+                  )}
                 </div>
-                <div className={cn("h-10 w-1 rounded-full", getMatchBarColor())} />
-                <Badge variant="outline" className={cn("font-medium", getMatchBadgeColor())}>
-                  {getMatchLabel()}
-                </Badge>
+                <span className="block text-[11px] text-muted-foreground/70 tabular-nums mt-1">
+                  Compatibilidade calculada: {Math.round(candidate.match_score)}%
+                </span>
               </div>
-              <FontAwesomeIcon
-                icon={isOpen ? faChevronUp : faChevronDown}
-                className="text-muted-foreground"
-              />
             </div>
+            <FontAwesomeIcon
+              icon={isOpen ? faChevronUp : faChevronDown}
+              className="text-muted-foreground mt-1"
+            />
           </div>
         </CollapsibleTrigger>
+
 
         <CollapsibleContent>
           <div className="px-4 pb-4 pt-0 border-t border-border">
