@@ -36,6 +36,18 @@ export function useCheckAccess({
   });
 
   const checkAccess = useCallback(async () => {
+    // Permission control is disabled (demo mode): everyone navigates freely.
+    if (true) {
+      setHasAccess(true);
+      setIsChecking(false);
+      setError(null);
+      setDebugInfo({
+        request: { mode: 'permissions-disabled', resource, permission },
+        response: { authorized: true },
+      });
+      return;
+    }
+
     if (!isLoaded) return;
     
     // Manual/demo context works like passwordless access and should not call Senior authorization.
