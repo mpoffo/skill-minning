@@ -52,9 +52,6 @@ export function AIRankedCandidateCard({ candidate }: AIRankedCandidateCardProps)
   const position = parts.length > 1 ? parts[0] : "";
 
   const isTop = candidate.rank === 1;
-  const positionLabel = isTop
-    ? "🥇 Melhor correspondência encontrada"
-    : `${candidate.rank}º resultado`;
 
   const skillsCount = candidate.evidence.hard_skills.length;
   const gapsCount = candidate.gaps.length;
@@ -68,54 +65,61 @@ export function AIRankedCandidateCard({ candidate }: AIRankedCandidateCardProps)
         )}
       >
         <CollapsibleTrigger className="w-full">
-          <div className="flex items-start justify-between gap-3 p-4 cursor-pointer hover:bg-grayscale-5/50 transition-colors rounded-lg">
+          <div className="flex items-start justify-between gap-4 p-4 cursor-pointer hover:bg-grayscale-5/50 transition-colors rounded-lg">
             <div className="flex items-start gap-3 min-w-0">
               <div
                 className={cn(
-                  "w-8 h-8 rounded-full flex items-center justify-center shrink-0",
+                  "min-w-8 h-8 px-2 rounded-full flex items-center justify-center shrink-0",
                   isTop ? "bg-primary" : "bg-grayscale-10"
                 )}
               >
-                <span className={cn("font-bold text-sm", isTop ? "text-white" : "text-foreground")}>
-                  {candidate.rank}
+                <span className={cn("font-bold text-sm tabular-nums", isTop ? "text-white" : "text-foreground")}>
+                  {candidate.rank}º
                 </span>
               </div>
               <div className="text-left min-w-0">
-                <span
-                  className={cn(
-                    "text-[11px] font-semibold uppercase tracking-wide",
-                    isTop ? "text-primary" : "text-muted-foreground"
-                  )}
-                >
-                  {positionLabel}
-                </span>
                 <h4 className="text-sm font-semibold text-foreground">{displayName}</h4>
                 {position && (
-                  <span className="text-xs text-muted-foreground">{position}</span>
+                  <span className="block text-xs text-muted-foreground">{position}</span>
                 )}
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2">
-                  {skillsCount > 0 && (
-                    <span className="text-xs font-medium text-[#166534]">
-                      {skillsCount} {skillsCount === 1 ? "habilidade evidenciada" : "habilidades evidenciadas"}
-                    </span>
-                  )}
-                  {gapsCount > 0 && (
-                    <span className="text-xs text-muted-foreground">
-                      {gapsCount} {gapsCount === 1 ? "gap identificado" : "gaps identificados"}
-                    </span>
-                  )}
-                </div>
+                {isTop && (
+                  <span className="block text-[11px] font-semibold uppercase tracking-wide text-primary mt-1">
+                    🥇 Melhor correspondência encontrada
+                  </span>
+                )}
                 <span className="block text-[11px] text-muted-foreground/70 tabular-nums mt-1">
                   Compatibilidade calculada: {Math.round(candidate.match_score)}%
                 </span>
               </div>
             </div>
-            <FontAwesomeIcon
-              icon={isOpen ? faChevronUp : faChevronDown}
-              className="text-muted-foreground mt-1"
-            />
+
+            <div className="flex items-start gap-3 shrink-0">
+              <div className="flex flex-col items-end gap-1">
+                {skillsCount > 0 && (
+                  <Badge className="bg-[#dcfce7] text-[#166534] border-0 font-medium hover:bg-[#dcfce7]">
+                    {skillsCount} {skillsCount === 1 ? "evidência" : "evidências"}
+                  </Badge>
+                )}
+                {gapsCount > 0 && (
+                  <Badge className="bg-[#ffedd5] text-[#9a3412] border-0 font-medium hover:bg-[#ffedd5]">
+                    {gapsCount} {gapsCount === 1 ? "gap" : "gaps"}
+                  </Badge>
+                )}
+                {candidate.evidence.certifications.length > 0 && (
+                  <Badge className="bg-[#e8f4fc] text-[#1e3a5f] border-0 font-medium hover:bg-[#e8f4fc]">
+                    {candidate.evidence.certifications.length}{" "}
+                    {candidate.evidence.certifications.length === 1 ? "certificação" : "certificações"}
+                  </Badge>
+                )}
+              </div>
+              <FontAwesomeIcon
+                icon={isOpen ? faChevronUp : faChevronDown}
+                className="text-muted-foreground mt-1"
+              />
+            </div>
           </div>
         </CollapsibleTrigger>
+
 
 
         <CollapsibleContent>
