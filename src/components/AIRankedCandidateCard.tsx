@@ -52,9 +52,6 @@ export function AIRankedCandidateCard({ candidate }: AIRankedCandidateCardProps)
   const position = parts.length > 1 ? parts[0] : "";
 
   const isTop = candidate.rank === 1;
-  const positionLabel = isTop
-    ? "🥇 Melhor correspondência encontrada"
-    : `${candidate.rank}º resultado`;
 
   const skillsCount = candidate.evidence.hard_skills.length;
   const gapsCount = candidate.gaps.length;
