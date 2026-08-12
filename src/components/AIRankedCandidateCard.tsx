@@ -41,9 +41,10 @@ interface AICandidate {
 
 interface AIRankedCandidateCardProps {
   candidate: AICandidate;
+  mustHave?: string[];
 }
 
-export function AIRankedCandidateCard({ candidate }: AIRankedCandidateCardProps) {
+export function AIRankedCandidateCard({ candidate, mustHave = [] }: AIRankedCandidateCardProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   // Extract name from person_identifier (format: "Cargo - Nome Completo")
@@ -52,6 +53,18 @@ export function AIRankedCandidateCard({ candidate }: AIRankedCandidateCardProps)
   const position = parts.length > 1 ? parts[0] : "";
 
   const isTop = candidate.rank === 1;
+
+  const normalize = (value: string) =>
+    value
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .trim();
+
+  const mustHaveSet = new Set(mustHave.map(normalize));
+
+  const importantGaps = candidate.gaps.filter((gap) => mustHaveSet.has(normalize(gap)));
+  const gapSkills = candidate.gaps.filter((gap) => !mustHaveSet.has(normalize(gap)));
 
   const skillsCount = candidate.evidence.hard_skills.length;
   const gapsCount = candidate.gaps.length;
@@ -100,9 +113,14 @@ export function AIRankedCandidateCard({ candidate }: AIRankedCandidateCardProps)
                     {skillsCount} {skillsCount === 1 ? "evidência" : "evidências"}
                   </Badge>
                 )}
-                {gapsCount > 0 && (
+                {importantGaps.length > 0 && (
+                  <Badge className="bg-[#fee2e2] text-[#991b1b] border-0 font-medium hover:bg-[#fee2e2]">
+                    {importantGaps.length} {importantGaps.length === 1 ? "gap importante" : "gaps importantes"}
+                  </Badge>
+                )}
+                {gapSkills.length > 0 && (
                   <Badge className="bg-[#ffedd5] text-[#9a3412] border-0 font-medium hover:bg-[#ffedd5]">
-                    {gapsCount} {gapsCount === 1 ? "gap" : "gaps"}
+                    {gapSkills.length} {gapSkills.length === 1 ? "gap" : "gaps"}
                   </Badge>
                 )}
                 {candidate.evidence.certifications.length > 0 && (
@@ -119,8 +137,6 @@ export function AIRankedCandidateCard({ candidate }: AIRankedCandidateCardProps)
             </div>
           </div>
         </CollapsibleTrigger>
-
-
 
         <CollapsibleContent>
           <div className="px-4 pb-4 pt-0 border-t border-border">
@@ -216,15 +232,34 @@ export function AIRankedCandidateCard({ candidate }: AIRankedCandidateCardProps)
               </div>
             )}
 
+            {/* Important Gaps */}
+            {importantGaps.length > 0 && (
+              <div className="mt-4 p-4 bg-[#fee2e2]/40 border border-[#ef4444]/30 rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <FontAwesomeIcon icon={faTriangleExclamation} className="text-[#ef4444] text-sm" />
+                  <span className="text-sm font-semibold text-[#991b1b]">
+                    Gaps importantes identificados ({importantGaps.length})
+                  </span>
+                </div>
+                <ul className="text-sm text-muted-foreground space-y-1 pl-1">
+                  {importantGaps.map((gap, idx) => (
+                    <li key={idx}>• {gap}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             {/* Gaps */}
-            {candidate.gaps.length > 0 && (
+            {gapSkills.length > 0 && (
               <div className="mt-4 p-4 bg-warning/10 border border-warning/30 rounded-lg">
                 <div className="flex items-center gap-2 mb-2">
                   <FontAwesomeIcon icon={faTriangleExclamation} className="text-warning text-sm" />
-                  <span className="text-sm font-semibold text-warning">Gaps Identificados</span>
+                  <span className="text-sm font-semibold text-warning">
+                    Gaps Identificados ({gapSkills.length})
+                  </span>
                 </div>
                 <ul className="text-sm text-muted-foreground space-y-1 pl-1">
-                  {candidate.gaps.map((gap, idx) => (
+                  {gapSkills.map((gap, idx) => (
                     <li key={idx}>• {gap}</li>
                   ))}
                 </ul>
