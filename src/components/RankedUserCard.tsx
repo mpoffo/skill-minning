@@ -17,12 +17,18 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 
+interface RequiredSkill {
+  name: string;
+  proficiency: number;
+}
+
 interface MatchedSkill {
   skillName: string;
   requiredProficiency: number;
   userProficiency: number;
   similarity: number;
 }
+
 
 interface UserDetails {
   certifications?: string[];
