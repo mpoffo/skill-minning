@@ -8,6 +8,7 @@ import {
   faAward,
   faGrip,
   faClipboardList,
+  faTriangleExclamation,
 } from "@fortawesome/free-solid-svg-icons";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -28,7 +29,6 @@ interface MatchedSkill {
   userProficiency: number;
   similarity: number;
 }
-
 
 interface UserDetails {
   certifications?: string[];
@@ -62,7 +62,6 @@ interface RankedUserCardProps {
   requiredSkills?: RequiredSkill[];
 }
 
-
 export function RankedUserCard({
   rank,
   userName,
@@ -73,7 +72,7 @@ export function RankedUserCard({
   justification,
   details,
   tier = 0,
-  requiredSkillNames = [],
+  requiredSkills = [],
 }: RankedUserCardProps) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -86,14 +85,19 @@ export function RankedUserCard({
 
   const matchedNames = matchedSkills.map((s) => s.skillName);
   const matchedSet = new Set(matchedNames.map(normalize));
-  const requiredSet = new Set(requiredSkillNames.map(normalize));
+  const requiredSet = new Set(requiredSkills.map((s) => normalize(s.name)));
 
-  const gapSkills = requiredSkillNames.filter((name) => !matchedSet.has(normalize(name)));
+  const importantGaps = requiredSkills
+    .filter((s) => s.proficiency === 5 && !matchedSet.has(normalize(s.name)))
+    .map((s) => s.name);
+  const gapSkills = requiredSkills
+    .filter((s) => s.proficiency !== 5 && !matchedSet.has(normalize(s.name)))
+    .map((s) => s.name);
   const extraSkills = (details?.hardSkills || []).filter(
     (name) => !matchedSet.has(normalize(name)) && !requiredSet.has(normalize(name))
   );
 
-  const totalRequired = requiredSkillNames.length || matchedSkills.length;
+  const totalRequired = requiredSkills.length || matchedSkills.length;
   const isTop = rank === 0;
 
   return (
@@ -140,6 +144,11 @@ export function RankedUserCard({
                 <Badge className="bg-[#dcfce7] text-[#166534] border-0 font-medium hover:bg-[#dcfce7]">
                   Atende {matchedSkills.length}/{totalRequired}
                 </Badge>
+                {importantGaps.length > 0 && (
+                  <Badge className="bg-[#fee2e2] text-[#991b1b] border-0 font-medium hover:bg-[#fee2e2]">
+                    {importantGaps.length} {importantGaps.length === 1 ? "gap importante" : "gaps importantes"}
+                  </Badge>
+                )}
                 {gapSkills.length > 0 && (
                   <Badge className="bg-[#ffedd5] text-[#9a3412] border-0 font-medium hover:bg-[#ffedd5]">
                     {gapSkills.length} {gapSkills.length === 1 ? "gap" : "gaps"}
@@ -159,9 +168,6 @@ export function RankedUserCard({
           </div>
         </CollapsibleTrigger>
 
-
-
-
         <CollapsibleContent>
           <div className="px-4 pb-4 pt-0 border-t border-border">
             {/* Justification/Summary */}
@@ -171,7 +177,7 @@ export function RankedUserCard({
               </p>
             )}
 
-            {/* Skills — matched / gaps / extras */}
+            {/* Skills — matched / important gaps / gaps / extras */}
             {matchedSkills.length > 0 && (
               <div className="mb-4">
                 <div className="flex items-center gap-2 mb-2">
@@ -189,6 +195,28 @@ export function RankedUserCard({
                     >
                       {skill.skillName}
                       {skill.userProficiency ? ` · ${skill.userProficiency}★` : ""}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {importantGaps.length > 0 && (
+              <div className="mb-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <FontAwesomeIcon icon={faTriangleExclamation} className="text-[#ef4444] text-sm" />
+                  <span className="text-sm font-semibold text-[#991b1b]">
+                    Gaps importantes ({importantGaps.length})
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {importantGaps.map((skill, idx) => (
+                    <Badge
+                      key={idx}
+                      variant="outline"
+                      className="border-dashed border-[#ef4444]/40 text-[#991b1b] font-normal"
+                    >
+                      {skill}
                     </Badge>
                   ))}
                 </div>
@@ -238,7 +266,6 @@ export function RankedUserCard({
                 </div>
               </div>
             )}
-
 
             {/* Certifications */}
             {details?.certifications && details.certifications.length > 0 && (
