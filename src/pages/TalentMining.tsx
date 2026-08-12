@@ -862,8 +862,9 @@ export default function TalentMining() {
 
               {/* AI Search Results - Top Candidates */}
               {aiSearchResult && aiSearchResult.top_3 && aiSearchResult.top_3.length > 0 && (
-                <AISearchResults candidates={aiSearchResult.top_3} />
+                <AISearchResults candidates={aiSearchResult.top_3} mustHave={aiSearchResult.understood_request?.must_have || []} />
               )}
+
 
               {/* AI Insights */}
               {aiSearchResult && (
