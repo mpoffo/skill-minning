@@ -59,8 +59,9 @@ interface RankedUserCardProps {
   justification?: string;
   details?: UserDetails;
   tier?: number;
-  requiredSkillNames?: string[];
+  requiredSkills?: RequiredSkill[];
 }
+
 
 export function RankedUserCard({
   rank,
