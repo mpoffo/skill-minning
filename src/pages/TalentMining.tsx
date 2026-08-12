@@ -752,7 +752,7 @@ export default function TalentMining() {
                             <RankedUserCard
                               key={user.userId}
                               rank={index}
-                              requiredSkillNames={requiredSkills.map((s) => s.name)}
+                              requiredSkills={requiredSkills}
                               userName={user.userName}
                               fullName={user.fullName}
                               leaderName={user.leaderName}
@@ -762,6 +762,7 @@ export default function TalentMining() {
                               details={user.details}
                             />
                           ))}
+
                         </div>
                       </div>
 
