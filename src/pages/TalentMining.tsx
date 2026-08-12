@@ -752,7 +752,7 @@ export default function TalentMining() {
                             <RankedUserCard
                               key={user.userId}
                               rank={index}
-                              requiredSkillNames={requiredSkills.map((s) => s.name)}
+                              requiredSkills={requiredSkills}
                               userName={user.userName}
                               fullName={user.fullName}
                               leaderName={user.leaderName}
@@ -762,6 +762,7 @@ export default function TalentMining() {
                               details={user.details}
                             />
                           ))}
+
                         </div>
                       </div>
 
@@ -861,8 +862,9 @@ export default function TalentMining() {
 
               {/* AI Search Results - Top Candidates */}
               {aiSearchResult && aiSearchResult.top_3 && aiSearchResult.top_3.length > 0 && (
-                <AISearchResults candidates={aiSearchResult.top_3} />
+                <AISearchResults candidates={aiSearchResult.top_3} mustHave={aiSearchResult.understood_request?.must_have || []} />
               )}
+
 
               {/* AI Insights */}
               {aiSearchResult && (

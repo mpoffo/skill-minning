@@ -27,9 +27,10 @@ interface AICandidate {
 
 interface AISearchResultsProps {
   candidates: AICandidate[];
+  mustHave?: string[];
 }
 
-export function AISearchResults({ candidates }: AISearchResultsProps) {
+export function AISearchResults({ candidates, mustHave = [] }: AISearchResultsProps) {
   const [showMore, setShowMore] = useState(false);
 
   const topThree = candidates.slice(0, 3);
@@ -50,6 +51,7 @@ export function AISearchResults({ candidates }: AISearchResultsProps) {
           <AIRankedCandidateCard
             key={candidate.rank}
             candidate={candidate}
+            mustHave={mustHave}
           />
         ))}
 
@@ -69,6 +71,7 @@ export function AISearchResults({ candidates }: AISearchResultsProps) {
           <AIRankedCandidateCard
             key={candidate.rank}
             candidate={candidate}
+            mustHave={mustHave}
           />
         ))}
       </CardContent>
